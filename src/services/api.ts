@@ -1,6 +1,6 @@
 ﻿import type { Student, UserProfile } from "../types";
 
-const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL = (import.meta as any).env.VITE_API_URL ?? "http://localhost:8000";
 
 function getAuthToken() {
   return localStorage.getItem("token");
