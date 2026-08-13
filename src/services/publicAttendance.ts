@@ -12,7 +12,7 @@ export interface PublicAttendanceReport {
   records: PublicAttendanceRecord[];
 }
 
-const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL = (import.meta as any).env.VITE_API_URL || "https://facetrack-ggbe.onrender.com";
 
 export async function fetchPublicAttendance(collegeSlug: string, rollNo: string): Promise<PublicAttendanceReport> {
   const response = await fetch(
