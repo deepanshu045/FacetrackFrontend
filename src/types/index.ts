@@ -27,11 +27,11 @@ export interface Student {
   college_id?: number;
   roll_no: string;
   name: string;
-  email: string;
-  phone_no?: string;
+  email?: string | null;
+  phone_no?: string | null;
   department: string;
-  class_name?: string;
-  section?: string;
+  class_name?: string | null;
+  section?: string | null;
   class_section_id?: number | null;
   image_path?: string | null;
   has_face: boolean;
@@ -48,16 +48,47 @@ export interface Teacher {
   created_at?: string;
 }
 
+export interface TeacherAssignment {
+  id: number;
+  teacher_id: number;
+  class_section_id: number;
+}
+
 export interface Lecture {
   id: number;
   college_id: number;
   class_section_id?: number | null;
   teacher_id?: number | null;
   subject: string;
+  department?: string | null;
+  class_name?: string | null;
+  section?: string | null;
   lecture_date: string;
   start_time: string;
   end_time: string;
-  status: string;
+  status: "Scheduled" | "Cancelled" | string;
+  created_at?: string | null;
+}
+
+export interface LectureSchedule {
+  id: number;
+  college_id: number;
+  class_section_id?: number | null;
+  subject: string;
+  department?: string | null;
+  class_name?: string | null;
+  section?: string | null;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+}
+
+export interface CollegeClosure {
+  id: number;
+  college_id: number;
+  closure_date: string;
+  reason: "Holiday" | "Event" | "Emergency" | "Other" | string;
+  description?: string | null;
 }
 
 export interface Attendance {
@@ -65,20 +96,48 @@ export interface Attendance {
   student_id: number;
   lecture_id: number;
   marked_at: string;
-  status?: string;
+  status: "Present" | "Absent" | string;
 }
 
-export interface AttendanceRecord {
-  id: number;
+export interface AttendanceReport {
   student_id: number;
-  lecture_id?: number;
-  attendance_date?: string;
-  attendance_time?: string;
-  student_name: string;
   roll_no: string;
+  name: string;
   department: string;
+  attendance_date: string;
+  attendance_time: string;
+}
+
+export interface TeacherAttendanceRow {
+  student_id: number;
+  roll_no: string;
+  name: string;
+  status: "Present" | "Absent";
+  attendance_id: number | null;
+}
+
+export interface RecognitionAttendanceResult {
+  matched: boolean;
+  attendance_marked: boolean;
+  message: string;
+  student_id?: number;
+  roll_no?: string;
+  name?: string;
+  department?: string;
+  attendance_id?: number;
+  date?: string;
+  time?: string;
+}
+
+export interface Notification {
+  id: number;
+  type: string;
+  message: string;
+  created_at: string;
+  lecture_id?: number;
+  subject?: string;
+  attendance_date?: string;
   status?: string;
-  marked_at?: string;
 }
 
 export interface UserProfile {
@@ -93,6 +152,7 @@ export interface UserProfile {
   resolution: string;
   fps: string;
   language: string;
+  college_id?: number;
 }
 
 export interface DepartmentData {
