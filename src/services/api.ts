@@ -103,7 +103,7 @@ export async function fetchLectures(date?: string) { const lectures = (await req
 
 export async function createLecture(payload: {
   subject: string;
-  class_section_id: number;
+  class_section_id: number | null;
   teacher_id?: number | null;
   start_time: string;
   end_time: string;
@@ -137,7 +137,7 @@ export async function cancelLecture(id: number) { return request(`/lectures/${id
 export async function deleteLecture(id: number) { return request(`/lectures/${id}`, { method: "DELETE" }); }
 
 export async function fetchLectureSchedules() { return request("/lecture-schedules") as Promise<LectureSchedule[]>; }
-export async function createLectureSchedule(payload: { subject: string; class_section_id: number; day_of_week: number; start_time: string; end_time: string }) {
+export async function createLectureSchedule(payload: { subject: string; class_section_id: number | null; day_of_week: number; start_time: string; end_time: string }) {
   if (!payload.class_section_id) {
     throw new Error("Class section is required");
   }
