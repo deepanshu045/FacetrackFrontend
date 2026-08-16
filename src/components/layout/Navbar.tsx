@@ -27,6 +27,7 @@ interface NavbarProps {
 }
 
 const PAGE_TITLES: Record<Page, string> = {
+  login: "Login",
   dashboard: "Dashboard",
   students: "Students",
   "upload-face": "Upload Face",
@@ -34,7 +35,11 @@ const PAGE_TITLES: Record<Page, string> = {
   reports: "Reports",
   profile: "Profile",
   settings: "Settings",
-  login: "Login",
+  "class-sections": "Class Sections",
+  teachers: "Teachers",
+  lectures: "Lectures",
+  schedules: "Weekly Schedules",
+  closures: "College Closures",
 };
 
 function formatNotificationTime(createdAt: string) {
@@ -60,11 +65,9 @@ export default function Navbar({
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsRead, setNotificationsRead] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  // Provide a centralized logout hook and prefer an explicit onLogout prop when passed
   const logoutHook = useLogout();
   const logout = onLogout ?? logoutHook;
 
-  // Close dropdowns and clear search when navigating to a new page
   useEffect(() => {
     setNotifOpen(false);
     setProfileOpen(false);
@@ -100,7 +103,6 @@ export default function Navbar({
   }, [search]);
 
   function selectStudent() {
-    // selecting a search result should behave like navigating via sidebar
     setNotifOpen(false);
     setProfileOpen(false);
     setSearch("");
@@ -114,7 +116,7 @@ export default function Navbar({
     async function loadNotifications() {
       setNotificationsLoading(true);
       try {
-        const data = await fetchNotifications();
+        const data = await fetchNotifications(8);
         if (!cancelled) setNotifications(data);
       } catch {
         if (!cancelled) setNotifications([]);
@@ -134,7 +136,6 @@ export default function Navbar({
       className="fixed top-0 right-0 z-20 flex h-16 items-center gap-4 border-b border-white/6 bg-[#020817]/90 px-6 backdrop-blur-md transition-all duration-300"
       style={{ left: sidebarWidth }}
     >
-      {/* Mobile Menu */}
       <button
         onClick={onMenuToggle}
         className="text-[#94A3B8] hover:text-white lg:hidden"
@@ -142,23 +143,18 @@ export default function Navbar({
         <Menu size={20} />
       </button>
 
-      <h1 className="text-lg font-semibold text-white">
-        {PAGE_TITLES[page]}
-      </h1>
+      <h1 className="text-lg font-semibold text-white">{PAGE_TITLES[page]}</h1>
 
       <div className="flex-1" />
 
-      {/* Search */}
       <div className="relative hidden sm:block">
         <Search
           size={15}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-[#475569]"
         />
-
         <input
           value={search}
           onChange={(e) => {
-            // typing in search should close other dropdowns
             setNotifOpen(false);
             setProfileOpen(false);
             setSearch(e.target.value);
@@ -196,12 +192,11 @@ export default function Navbar({
         )}
       </div>
 
-      {/* Notifications */}
       <div className="relative">
         <button
           onClick={() => {
             setNotificationsRead(true);
-            setProfileOpen(false); // close profile when opening notifications
+            setProfileOpen(false);
             setNotifOpen((v) => !v);
           }}
           className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-[#94A3B8] transition-colors hover:bg-white/10 hover:text-white"
@@ -221,9 +216,7 @@ export default function Navbar({
               className="absolute right-0 top-12 w-72 overflow-hidden rounded-2xl border border-white/10 bg-[#1E293B] shadow-2xl"
             >
               <div className="border-b border-white/10 p-4">
-                <p className="text-sm font-semibold text-white">
-                  Notifications
-                </p>
+                <p className="text-sm font-semibold text-white">Notifications</p>
               </div>
 
               {notificationsLoading ? (
@@ -235,6 +228,7 @@ export default function Navbar({
                     <div>
                       <p className="text-sm text-white">{item.message}</p>
                       <p className="mt-0.5 text-xs text-[#94A3B8]">
+                        {item.subject ? `${item.subject} · ` : ""}
                         {formatNotificationTime(item.created_at)}
                       </p>
                     </div>
@@ -248,34 +242,20 @@ export default function Navbar({
         </AnimatePresence>
       </div>
 
-      {/* Profile */}
       <div className="relative">
         <button
           onClick={() => {
-            setNotifOpen(false); // close notifications when opening profile
+            setNotifOpen(false);
             setProfileOpen((v) => !v);
           }}
           className="flex items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-white/5"
         >
-          <Avatar
-            name="Admin User"
-            size="sm"
-          />
-
+          <Avatar name="Admin User" size="sm" />
           <div className="hidden text-left sm:block">
-            <p className="text-sm font-medium leading-none text-white">
-              Admin User
-            </p>
-
-            <p className="mt-0.5 text-xs text-[#94A3B8]">
-              Administrator
-            </p>
+            <p className="text-sm font-medium leading-none text-white">Admin User</p>
+            <p className="mt-0.5 text-xs text-[#94A3B8]">Administrator</p>
           </div>
-
-          <ChevronDown
-            size={14}
-            className="text-[#94A3B8]"
-          />
+          <ChevronDown size={14} className="text-[#94A3B8]" />
         </button>
 
         <AnimatePresence>
