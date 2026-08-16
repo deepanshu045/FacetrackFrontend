@@ -67,7 +67,6 @@ export async function login(collegeSlug: string, username: string, password: str
   if (!token) throw new Error("Login response did not contain an access token");
   return { access_token: token, token_type: data?.token_type || "bearer" };
 }
-
 export async function registerCollege(payload: { college_name: string; college_slug: string; username: string; name: string; email: string; password: string }) {
   return request("/auth/register-college", { method: "POST", headers: getAuthHeaders("application/json"), body: JSON.stringify({ ...payload, college_name: payload.college_name.trim(), college_slug: payload.college_slug.trim().toLowerCase(), username: payload.username.trim(), email: payload.email.trim().toLowerCase() }) }) as Promise<{ message: string }>;
 }
@@ -101,7 +100,50 @@ export async function assignTeacherClass(teacherId: number, classSectionId: numb
 export async function fetchTeacherLectures() { return request("/teachers/me/lectures") as Promise<Lecture[]>; }
 
 export async function fetchLectures(date?: string) { const lectures = (await request("/lectures")) as Lecture[]; return date ? lectures.filter((lecture) => lecture.lecture_date === date) : lectures; }
-export async function createLecture(payload: { subject: string; class_section_id?: number | null; teacher_id?: number | null; lecture_date: string; start_time: string; end_time: string; department?: string; class_name?: string; section?: string }) { return request("/lectures", { method: "POST", headers: getAuthHeaders("application/json"), body: JSON.stringify(payload) }) as Promise<Lecture>; }
+
+export async function createLecture(payload: {
+  subject: string;
+  class_section_id: number;
+  start_time: string;
+  end_time: string;
+  lecture_date?: string;
+}) {
+  const sections = await fetchClassSections();
+  const section = sections.find((item) => item.id === payload.class_section_id);
+  if (!section) throw new Error("Selected class section was not found");
+
+  let dayOfWeek: number;
+  if (!payload.lecture_date) {
+    throw new Error("Lecture date is required to determine the day of week");
+  }
+
+  const parts = payload.lecture_date.split("-").map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) {
+    throw new Error("Invalid lecture date");
+  }
+
+  // Backend uses 0=Monday, matching the weekly schedule endpoint.
+  const jsDay = new Date(parts[0], parts[1] - 1, parts[2]).getDay();
+  dayOfWeek = (jsDay + 6) % 7;
+
+  const backendPayload = {
+    subject: payload.subject.trim(),
+    class_section_id: payload.class_section_id,
+    department: section.department,
+    class_name: section.class_name,
+    section: section.section,
+    day_of_week: dayOfWeek,
+    start_time: payload.start_time,
+    end_time: payload.end_time,
+  };
+
+  return request("/lectures", {
+    method: "POST",
+    headers: getAuthHeaders("application/json"),
+    body: JSON.stringify(backendPayload),
+  }) as Promise<Lecture>;
+}
+
 export async function updateLecture(id: number, payload: Partial<Lecture>) { return request(`/lectures/${id}`, { method: "PUT", headers: getAuthHeaders("application/json"), body: JSON.stringify(payload) }) as Promise<Lecture>; }
 export async function cancelLecture(id: number) { return request(`/lectures/${id}/cancel`, { method: "POST" }) as Promise<Lecture>; }
 export async function deleteLecture(id: number) { return request(`/lectures/${id}`, { method: "DELETE" }); }
