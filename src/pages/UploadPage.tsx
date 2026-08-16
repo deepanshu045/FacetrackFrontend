@@ -31,16 +31,6 @@ import { cn } from "../utils/cn";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
-const emptyAnalysis = {
-  faceDetected: false,
-  onlyOneFace: false,
-  lookingStraight: false,
-  goodLighting: false,
-  properDistance: false,
-  sharpImage: false,
-  quality: 0,
-};
-
 function Spinner() {
   return <Loader2 size={17} className="animate-spin" aria-hidden="true" />;
 }
@@ -69,7 +59,6 @@ export default function UploadFacePage() {
   const [registering, setRegistering] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [imageInfo, setImageInfo] = useState<{ name: string; size: number } | null>(null);
-  const [imageQuality, setImageQuality] = useState(0);
 
   const liveAnalysis = useFaceDetection(videoRef);
 
@@ -109,7 +98,6 @@ export default function UploadFacePage() {
     setCaptured(false);
     setCapturedImage(null);
     setImageInfo(null);
-    setImageQuality(0);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -132,7 +120,6 @@ export default function UploadFacePage() {
       setCapturedImage(reader.result as string);
       setCaptured(true);
       setImageInfo({ name: file.name, size: file.size });
-      setImageQuality(0);
       toast.success("Image ready for review");
     };
     reader.onerror = () => toast.error("Unable to read this image");
@@ -188,7 +175,6 @@ export default function UploadFacePage() {
     setCapturedImage(dataUrl);
     setCaptured(true);
     setImageInfo({ name: "camera-capture.jpg", size: Math.round((dataUrl.length * 3) / 4) });
-    setImageQuality(0);
     toast.success("Photo captured — review it before registering");
   };
 
