@@ -6,6 +6,7 @@ import GlassCard from "../components/ui/GlassCard";
 import StudentsToolbar from "../components/students/StudentsToolbar";
 import StudentsTable from "../components/students/StudentsTable";
 import StudentFormModal, { StudentForm } from "../components/students/StudentFormModal";
+import StudentViewModal from "../components/students/StudentViewModal";
 import DeleteStudentModal from "../components/students/DeleteStudentModal";
 import useStudents from "../hooks/useStudents";
 import { fetchClassSections } from "../services/api";
@@ -19,6 +20,7 @@ export default function StudentPage() {
   const [dept, setDept] = useState("All");
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
+  const [viewStudent, setViewStudent] = useState<Student | null>(null);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Student | null>(null);
   const [saving, setSaving] = useState(false);
@@ -95,18 +97,12 @@ export default function StudentPage() {
       return;
     }
 
-    const selectedSection = classSections.find(
-      (item) => item.id === Number(form.class_section_id),
-    );
-
+    const selectedSection = classSections.find((item) => item.id === Number(form.class_section_id));
     if (!selectedSection) {
       toast.error("Selected class/section could not be found");
       return;
     }
 
-    // The backend requires department on StudentCreate/StudentUpdate.
-    // Department is derived from the selected class section so the frontend
-    // cannot accidentally send a department that does not match the section.
     const payload: Partial<Student> = {
       roll_no: form.roll_no.trim(),
       name: form.name.trim(),
@@ -186,10 +182,17 @@ export default function StudentPage() {
           total={filteredStudents.length}
           perPage={PER_PAGE}
           onPage={setPage}
+          onView={setViewStudent}
           onEdit={openEdit}
           onDelete={setDeleteConfirm}
         />
       </GlassCard>
+
+      <StudentViewModal
+        open={!!viewStudent}
+        student={viewStudent}
+        onClose={() => setViewStudent(null)}
+      />
 
       <StudentFormModal
         open={modalOpen}
