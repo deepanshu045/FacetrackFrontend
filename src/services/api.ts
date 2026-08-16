@@ -89,7 +89,19 @@ export async function searchStudents(query: string, classSectionId?: number) { r
 export async function addStudent(payload: Partial<Student>) { return request("/students/register", { method: "POST", headers: getAuthHeaders("application/json"), body: JSON.stringify(payload) }) as Promise<Student>; }
 export async function updateStudent(id: number, payload: Partial<Student>) { return request(`/students/${id}`, { method: "PUT", headers: getAuthHeaders("application/json"), body: JSON.stringify(payload) }) as Promise<Student>; }
 export async function deleteStudent(id: number) { return request(`/students/${id}`, { method: "DELETE" }); }
-export async function uploadFace(studentId: number, file: Blob) { const formData = new FormData(); formData.append("file", file, `face-${studentId}.jpg`); return request(`/students/upload-face/${studentId}`, { method: "POST", headers: getAuthHeaders(), body: formData }) as Promise<{ message: string }>; }
+
+export async function uploadFace(studentId: number, file: Blob) {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Please select an image file.");
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error("Image must be smaller than 10 MB.");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file, `face-${studentId}.jpg`);
+  return request(`/students/upload-face/${studentId}`, { method: "POST", headers: getAuthHeaders(), body: formData }) as Promise<{ message: string }>;
+}
 
 export async function createTeacher(payload: { username: string; name: string; email?: string; password: string }) { return request("/teachers", { method: "POST", headers: getAuthHeaders("application/json"), body: JSON.stringify(payload) }) as Promise<Teacher>; }
 export async function fetchTeachers() { return request("/teachers") as Promise<Teacher[]>; }
@@ -100,49 +112,17 @@ export async function assignTeacherClass(teacherId: number, classSectionId: numb
 export async function fetchTeacherLectures() { return request("/teachers/me/lectures") as Promise<Lecture[]>; }
 
 export async function fetchLectures(date?: string) { const lectures = (await request("/lectures")) as Lecture[]; return date ? lectures.filter((lecture) => lecture.lecture_date === date) : lectures; }
-
-export async function createLecture(payload: {
-  subject: string;
-  class_section_id: number | null;
-  teacher_id?: number | null;
-  start_time: string;
-  end_time: string;
-  lecture_date: string;
-}) {
-  if (!payload.class_section_id) {
-    throw new Error("Class section is required");
-  }
-  if (!payload.lecture_date) {
-    throw new Error("Lecture date is required");
-  }
-
-  const backendPayload = {
-    subject: payload.subject.trim(),
-    class_section_id: payload.class_section_id,
-    teacher_id: payload.teacher_id ?? null,
-    lecture_date: payload.lecture_date,
-    start_time: payload.start_time,
-    end_time: payload.end_time,
-  };
-
-  return request("/lectures", {
-    method: "POST",
-    headers: getAuthHeaders("application/json"),
-    body: JSON.stringify(backendPayload),
-  }) as Promise<Lecture>;
+export async function createLecture(payload: { subject: string; class_section_id: number | null; teacher_id?: number | null; start_time: string; end_time: string; lecture_date: string }) {
+  if (!payload.class_section_id) throw new Error("Class section is required");
+  if (!payload.lecture_date) throw new Error("Lecture date is required");
+  return request("/lectures", { method: "POST", headers: getAuthHeaders("application/json"), body: JSON.stringify({ subject: payload.subject.trim(), class_section_id: payload.class_section_id, teacher_id: payload.teacher_id ?? null, lecture_date: payload.lecture_date, start_time: payload.start_time, end_time: payload.end_time }) }) as Promise<Lecture>;
 }
-
 export async function updateLecture(id: number, payload: Partial<Lecture>) { return request(`/lectures/${id}`, { method: "PUT", headers: getAuthHeaders("application/json"), body: JSON.stringify(payload) }) as Promise<Lecture>; }
 export async function cancelLecture(id: number) { return request(`/lectures/${id}/cancel`, { method: "POST" }) as Promise<Lecture>; }
 export async function deleteLecture(id: number) { return request(`/lectures/${id}`, { method: "DELETE" }); }
 
 export async function fetchLectureSchedules() { return request("/lecture-schedules") as Promise<LectureSchedule[]>; }
-export async function createLectureSchedule(payload: { subject: string; class_section_id: number | null; day_of_week: number; start_time: string; end_time: string }) {
-  if (!payload.class_section_id) {
-    throw new Error("Class section is required");
-  }
-  return request("/lecture-schedules", { method: "POST", headers: getAuthHeaders("application/json"), body: JSON.stringify(payload) }) as Promise<LectureSchedule>;
-}
+export async function createLectureSchedule(payload: { subject: string; class_section_id: number | null; day_of_week: number; start_time: string; end_time: string }) { if (!payload.class_section_id) throw new Error("Class section is required"); return request("/lecture-schedules", { method: "POST", headers: getAuthHeaders("application/json"), body: JSON.stringify(payload) }) as Promise<LectureSchedule>; }
 export async function deleteLectureSchedule(id: number) { return request(`/lecture-schedules/${id}`, { method: "DELETE" }); }
 
 export async function fetchCollegeClosures() { return request("/college-closures") as Promise<CollegeClosure[]>; }
