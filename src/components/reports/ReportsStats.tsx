@@ -19,7 +19,7 @@ export default function ReportsStats({
     <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
       <StatCard
         icon={UserCheck}
-        label="Present Today"
+        label="Present in View"
         value={totalPresent.toString()}
         growth=""
         trend="up"
@@ -28,7 +28,7 @@ export default function ReportsStats({
 
       <StatCard
         icon={UserX}
-        label="Absent Today"
+        label="Absent in View"
         value={totalAbsent.toString()}
         growth=""
         trend="down"
