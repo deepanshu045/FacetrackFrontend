@@ -18,9 +18,10 @@ import {
   fetchAttendanceByDate,
   fetchMonthlyAttendance,
   fetchAttendanceByStudent,
+  fetchLectures,
 } from "../services/api";
 
-import { AttendanceRecord, DepartmentData, WeeklyAttendance } from "../types";
+import { AttendanceReport, AttendanceRecord, DepartmentData, Lecture, WeeklyAttendance } from "../types";
 
 const todayString = () => {
   const today = new Date();
@@ -50,6 +51,9 @@ export default function ReportsPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [studentAttendance, setStudentAttendance] = useState<AttendanceReport[]>([]);
+  const [lectures, setLectures] = useState<Lecture[]>([]);
+  const [percentageLoading, setPercentageLoading] = useState(false);
 
   useEffect(() => {
     if (selectedStudentId === null && students.length > 0) {
@@ -133,6 +137,32 @@ export default function ReportsPage() {
     loadRecords();
   }, [filter, selectedDate, selectedMonth, selectedStudentId]);
 
+  useEffect(() => {
+    if (!selectedStudentId) {
+      setStudentAttendance([]);
+      return;
+    }
+
+    async function loadStudentPercentageData() {
+      setPercentageLoading(true);
+      try {
+        const [attendanceData, lectureData] = await Promise.all([
+          fetchAttendanceByStudent(selectedStudentId!),
+          fetchLectures(),
+        ]);
+        setStudentAttendance(attendanceData);
+        setLectures(lectureData);
+      } catch {
+        setStudentAttendance([]);
+        setLectures([]);
+      } finally {
+        setPercentageLoading(false);
+      }
+    }
+
+    loadStudentPercentageData();
+  }, [selectedStudentId]);
+
   const filtered = useMemo(() => {
     const normalized = search.trim().toLowerCase();
     return records
@@ -176,6 +206,29 @@ export default function ReportsPage() {
   const selectedStudent = students.find(
     (student) => student.id === selectedStudentId
   );
+
+  const studentAttendancePercentage = useMemo(() => {
+    if (!selectedStudent || !studentAttendance.length) return null;
+
+    const studentLectures = lectures.filter(
+      (lecture) =>
+        lecture.status !== "Cancelled" &&
+        lecture.class_section_id === selectedStudent.class_section_id
+    );
+
+    if (!studentLectures.length) return null;
+
+    const percentage = Math.min(
+      100,
+      Math.round((studentAttendance.length / studentLectures.length) * 100)
+    );
+
+    return {
+      percentage,
+      present: Math.min(studentAttendance.length, studentLectures.length),
+      total: studentLectures.length,
+    };
+  }, [selectedStudent, studentAttendance, lectures]);
  
   const weeklyData = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -344,6 +397,43 @@ export default function ReportsPage() {
                     <p className="text-sm text-[#94A3B8]">
                       {selectedStudent.roll_no} · {selectedStudent.department}
                     </p>
+                    <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-[#64748B]">
+                          Attendance
+                        </p>
+                        {percentageLoading ? (
+                          <p className="mt-1 text-sm text-[#94A3B8]">Calculating...</p>
+                        ) : studentAttendancePercentage ? (
+                          <p
+                            className={`mt-1 text-2xl font-bold ${
+                              studentAttendancePercentage.percentage > 75
+                                ? "text-emerald-400"
+                                : "text-red-400"
+                            }`}
+                          >
+                            {studentAttendancePercentage.percentage}%
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-sm text-[#94A3B8]">
+                            No lecture data available
+                          </p>
+                        )}
+                      </div>
+                      {studentAttendancePercentage ? (
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                            studentAttendancePercentage.percentage > 75
+                              ? "bg-emerald-500/15 text-emerald-300"
+                              : "bg-red-500/15 text-red-300"
+                          }`}
+                        >
+                          {studentAttendancePercentage.percentage > 75
+                            ? "Above 75%"
+                            : "Below 75%"}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
               </div>
