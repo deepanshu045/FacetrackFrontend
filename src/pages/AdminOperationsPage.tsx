@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import PageWrap from "../components/layout/PageWrap";
@@ -7,6 +7,7 @@ import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import {
   assignTeacherClass,
+  cancelLecture,
   createClassSection,
   createCollegeClosure,
   createLecture,
@@ -26,9 +27,7 @@ import type { ClassSection, CollegeClosure, Lecture, LectureSchedule, Teacher } 
 
 type Mode = "class-sections" | "teachers" | "lectures" | "schedules" | "closures";
 
-interface Props {
-  mode: Mode;
-}
+interface Props { mode: Mode; }
 
 const DAYS = [
   [0, "Monday"], [1, "Tuesday"], [2, "Wednesday"], [3, "Thursday"], [4, "Friday"], [5, "Saturday"], [6, "Sunday"],
@@ -49,6 +48,7 @@ export default function AdminOperationsPage({ mode }: Props) {
   const [closures, setClosures] = useState<CollegeClosure[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   const [sectionForm, setSectionForm] = useState(EMPTY_SECTION);
   const [teacherForm, setTeacherForm] = useState(EMPTY_TEACHER);
@@ -60,105 +60,68 @@ export default function AdminOperationsPage({ mode }: Props) {
   async function load() {
     setLoading(true);
     try {
-      if (mode === "class-sections") {
-        setSections(await fetchClassSections());
-      } else if (mode === "teachers") {
+      if (mode === "class-sections") setSections(await fetchClassSections());
+      else if (mode === "teachers") {
         const [t, s] = await Promise.all([fetchTeachers(), fetchClassSections()]);
-        setTeachers(t);
-        setSections(s);
+        setTeachers(t); setSections(s);
       } else if (mode === "lectures") {
         const [l, s, t] = await Promise.all([fetchLectures(), fetchClassSections(), fetchTeachers()]);
-        setLectures(l);
-        setSections(s);
-        setTeachers(t);
+        setLectures(l); setSections(s); setTeachers(t);
       } else if (mode === "schedules") {
         const [w, s] = await Promise.all([fetchLectureSchedules(), fetchClassSections()]);
-        setSchedules(w);
-        setSections(s);
-      } else if (mode === "closures") {
-        setClosures(await fetchCollegeClosures());
-      }
+        setSchedules(w); setSections(s);
+      } else if (mode === "closures") setClosures(await fetchCollegeClosures());
     } catch (error: any) {
       toast.error(error?.message || "Failed to load data");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
-  useEffect(() => {
-    void load();
-  }, [mode]);
+  useEffect(() => { void load(); }, [mode]);
 
   const title = useMemo(() => ({
-    "class-sections": "Class Sections",
-    teachers: "Teachers",
-    lectures: "Lectures",
-    schedules: "Weekly Schedule",
-    closures: "College Closures",
+    "class-sections": "Class Sections", teachers: "Teachers", lectures: "Lectures",
+    schedules: "Weekly Schedule", closures: "College Closures",
   }[mode]), [mode]);
 
   async function submitSection(e: FormEvent) {
     e.preventDefault();
     if (!sectionForm.department.trim() || !sectionForm.class_name.trim() || !sectionForm.section.trim()) {
-      toast.error("Department, class and section are required");
-      return;
+      toast.error("Department, class and section are required"); return;
     }
     setSubmitting(true);
     try {
-      await createClassSection({
-        department: sectionForm.department.trim(),
-        class_name: sectionForm.class_name.trim(),
-        section: sectionForm.section.trim(),
-      });
-      setSectionForm(EMPTY_SECTION);
-      await load();
-      toast.success("Class section created");
-    } catch (error: any) {
-      toast.error(error?.message || "Could not create class section");
-    } finally {
-      setSubmitting(false);
-    }
+      await createClassSection({ department: sectionForm.department.trim(), class_name: sectionForm.class_name.trim(), section: sectionForm.section.trim() });
+      setSectionForm(EMPTY_SECTION); await load(); toast.success("Class section created");
+    } catch (error: any) { toast.error(error?.message || "Could not create class section"); }
+    finally { setSubmitting(false); }
   }
 
   async function submitTeacher(e: FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
+    e.preventDefault(); setSubmitting(true);
     try {
       await createTeacher({ ...teacherForm, email: teacherForm.email || undefined });
-      setTeacherForm(EMPTY_TEACHER);
-      await load();
-      toast.success("Teacher created");
-    } catch (error: any) {
-      toast.error(error?.message || "Could not create teacher");
-    } finally {
-      setSubmitting(false);
-    }
+      setTeacherForm(EMPTY_TEACHER); await load(); toast.success("Teacher created");
+    } catch (error: any) { toast.error(error?.message || "Could not create teacher"); }
+    finally { setSubmitting(false); }
   }
 
   async function submitAssignment(e: FormEvent) {
     e.preventDefault();
-    if (!assignment.teacherId || !assignment.classSectionId) {
-      toast.error("Select both a teacher and a class section");
-      return;
-    }
+    if (!assignment.teacherId || !assignment.classSectionId) { toast.error("Select both a teacher and a class section"); return; }
     setSubmitting(true);
     try {
       await assignTeacherClass(Number(assignment.teacherId), Number(assignment.classSectionId));
-      setAssignment(EMPTY_ASSIGNMENT);
-      toast.success("Teacher assigned to class");
-    } catch (error: any) {
-      toast.error(error?.message || "Could not assign teacher");
-    } finally {
-      setSubmitting(false);
-    }
+      setAssignment(EMPTY_ASSIGNMENT); toast.success("Teacher assigned to class");
+    } catch (error: any) { toast.error(error?.message || "Could not assign teacher"); }
+    finally { setSubmitting(false); }
   }
 
   async function submitLecture(e: FormEvent) {
     e.preventDefault();
     if (!lectureForm.subject.trim() || !lectureForm.date || !lectureForm.start || !lectureForm.end) {
-      toast.error("Subject, date, start time and end time are required");
-      return;
+      toast.error("Subject, date, start time and end time are required"); return;
     }
+    if (lectureForm.end <= lectureForm.start) { toast.error("End time must be after start time"); return; }
     setSubmitting(true);
     try {
       await createLecture({
@@ -169,62 +132,44 @@ export default function AdminOperationsPage({ mode }: Props) {
         start_time: lectureForm.start,
         end_time: lectureForm.end,
       });
-      setLectureForm(EMPTY_LECTURE);
+      setLectureForm(EMPTY_LECTURE); await load(); toast.success("Lecture created");
+    } catch (error: any) { toast.error(error?.message || "Could not create lecture"); }
+    finally { setSubmitting(false); }
+  }
+
+  async function handleCancelLecture(lecture: Lecture) {
+    if (lecture.status === "Cancelled") return;
+    if (!confirm(`Cancel ${lecture.subject} on ${lecture.lecture_date}?`)) return;
+    setCancellingId(lecture.id);
+    try {
+      await cancelLecture(lecture.id);
       await load();
-      toast.success("Lecture created");
-    } catch (error: any) {
-      toast.error(error?.message || "Could not create lecture");
-    } finally {
-      setSubmitting(false);
-    }
+      toast.success("Lecture cancelled");
+    } catch (error: any) { toast.error(error?.message || "Could not cancel lecture"); }
+    finally { setCancellingId(null); }
   }
 
   async function submitSchedule(e: FormEvent) {
     e.preventDefault();
-    if (!scheduleForm.subject.trim() || !scheduleForm.start || !scheduleForm.end) {
-      toast.error("Subject, start time and end time are required");
-      return;
-    }
+    if (!scheduleForm.subject.trim() || !scheduleForm.start || !scheduleForm.end) { toast.error("Subject, start time and end time are required"); return; }
+    if (scheduleForm.end <= scheduleForm.start) { toast.error("End time must be after start time"); return; }
     setSubmitting(true);
     try {
-      await createLectureSchedule({
-        subject: scheduleForm.subject.trim(),
-        class_section_id: scheduleForm.classSectionId ? Number(scheduleForm.classSectionId) : null,
-        day_of_week: Number(scheduleForm.day),
-        start_time: scheduleForm.start,
-        end_time: scheduleForm.end,
-      });
-      setScheduleForm(EMPTY_SCHEDULE);
-      await load();
-      toast.success("Weekly schedule created");
-    } catch (error: any) {
-      toast.error(error?.message || "Could not create schedule");
-    } finally {
-      setSubmitting(false);
-    }
+      await createLectureSchedule({ subject: scheduleForm.subject.trim(), class_section_id: scheduleForm.classSectionId ? Number(scheduleForm.classSectionId) : null, day_of_week: Number(scheduleForm.day), start_time: scheduleForm.start, end_time: scheduleForm.end });
+      setScheduleForm(EMPTY_SCHEDULE); await load(); toast.success("Weekly schedule created");
+    } catch (error: any) { toast.error(error?.message || "Could not create schedule"); }
+    finally { setSubmitting(false); }
   }
 
   async function submitClosure(e: FormEvent) {
     e.preventDefault();
-    if (!closureForm.date) {
-      toast.error("Select a closure date");
-      return;
-    }
+    if (!closureForm.date) { toast.error("Select a closure date"); return; }
     setSubmitting(true);
     try {
-      await createCollegeClosure({
-        closure_date: closureForm.date,
-        reason: closureForm.reason as any,
-        description: closureForm.description || null,
-      });
-      setClosureForm(EMPTY_CLOSURE);
-      await load();
-      toast.success("College closure created");
-    } catch (error: any) {
-      toast.error(error?.message || "Could not create closure");
-    } finally {
-      setSubmitting(false);
-    }
+      await createCollegeClosure({ closure_date: closureForm.date, reason: closureForm.reason as any, description: closureForm.description || null });
+      setClosureForm(EMPTY_CLOSURE); await load(); toast.success("College closure created");
+    } catch (error: any) { toast.error(error?.message || "Could not create closure"); }
+    finally { setSubmitting(false); }
   }
 
   const sectionName = (id?: number | null) => {
@@ -233,31 +178,17 @@ export default function AdminOperationsPage({ mode }: Props) {
   };
   const teacherName = (id?: number | null) => teachers.find(x => x.id === id)?.name || "Unassigned";
 
-  if (loading) {
-    return (
-      <PageWrap>
-        <div className="flex min-h-64 items-center justify-center gap-3 text-slate-400">
-          <Loader2 size={20} className="animate-spin" />
-          <span>Loading {title.toLowerCase()}…</span>
-        </div>
-      </PageWrap>
-    );
-  }
+  if (loading) return <PageWrap><div className="flex min-h-64 items-center justify-center gap-3 text-slate-400"><Loader2 size={20} className="animate-spin" /><span>Loading {title.toLowerCase()}…</span></div></PageWrap>;
 
   return <PageWrap>
-    <div className="mb-6">
-      <h1 className="text-2xl font-bold text-white">{title}</h1>
-      <p className="mt-1 text-sm text-slate-400">Manage this data using the current FaceTrack backend.</p>
-    </div>
+    <div className="mb-6"><h1 className="text-2xl font-bold text-white">{title}</h1><p className="mt-1 text-sm text-slate-400">Manage this data using the current FaceTrack backend.</p></div>
 
     {mode === "class-sections" && <>
       <form onSubmit={submitSection} className="mb-6 grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-5 md:grid-cols-4">
         <Input label="Department" value={sectionForm.department} onChange={e => setSectionForm({ ...sectionForm, department: e.target.value })} disabled={submitting} />
         <Input label="Class" value={sectionForm.class_name} onChange={e => setSectionForm({ ...sectionForm, class_name: e.target.value })} disabled={submitting} />
         <Input label="Section" value={sectionForm.section} onChange={e => setSectionForm({ ...sectionForm, section: e.target.value })} disabled={submitting} />
-        <Button type="submit" className="mt-auto" disabled={submitting}>
-          {submitting ? <><Loader2 size={16} className="animate-spin" /> Creating…</> : <><Plus size={16} /> Create</>}
-        </Button>
+        <Button type="submit" className="mt-auto" disabled={submitting}>{submitting ? <><Loader2 size={16} className="animate-spin" /> Creating…</> : <><Plus size={16} /> Create</>}</Button>
       </form>
       <List rows={sections.map(s => ({ id: s.id, text: `${s.department} · ${s.class_name} · ${s.section}`, onDelete: () => deleteClassSection(s.id) }))} reload={load} />
     </>}
@@ -288,7 +219,20 @@ export default function AdminOperationsPage({ mode }: Props) {
         <Input label="End" type="time" value={lectureForm.end} onChange={e => setLectureForm({ ...lectureForm, end: e.target.value })} disabled={submitting} />
         <Button type="submit" disabled={submitting}>{submitting ? <><Loader2 size={16} className="animate-spin" /> Creating…</> : <><Plus size={16} /> Create Lecture</>}</Button>
       </form>
-      <List rows={lectures.map(l => ({ id: l.id, text: `${l.lecture_date} · ${l.subject} · ${sectionName(l.class_section_id)} · ${teacherName(l.teacher_id)} · ${l.start_time}–${l.end_time} · ${l.status}`, onDelete: l.status === "Cancelled" ? undefined : () => deleteLecture(l.id) }))} reload={load} />
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+        {lectures.length === 0 ? <div className="p-8 text-center text-sm text-slate-400">No lectures found.</div> : lectures.map(l => (
+          <div key={l.id} className="flex flex-col gap-3 border-b border-white/5 px-4 py-4 last:border-0 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="text-sm font-medium text-slate-100">{l.subject} <span className={l.status === "Cancelled" ? "text-red-400" : "text-emerald-400"}>· {l.status}</span></div>
+              <div className="mt-1 text-xs text-slate-400">{l.lecture_date} · {sectionName(l.class_section_id)} · {teacherName(l.teacher_id)} · {l.start_time}–{l.end_time}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              {l.status !== "Cancelled" && <button disabled={cancellingId !== null} onClick={() => void handleCancelLecture(l)} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-amber-300 hover:bg-amber-500/10 disabled:opacity-50"><XCircle size={15} />{cancellingId === l.id ? "Cancelling…" : "Cancel"}</button>}
+              <button disabled={cancellingId !== null} aria-label={`Delete ${l.subject}`} onClick={async () => { if (!confirm("Delete this lecture?")) return; try { await deleteLecture(l.id); await load(); toast.success("Deleted"); } catch (error: any) { toast.error(error?.message || "Delete failed"); } }} className="rounded-lg p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"><Trash2 size={15} /></button>
+            </div>
+          </div>
+        ))}
+      </div>
     </>}
 
     {mode === "schedules" && <>
@@ -317,38 +261,12 @@ export default function AdminOperationsPage({ mode }: Props) {
 
 function List({ rows, reload }: { rows: { id: number; text: string; onDelete?: () => Promise<any> }[]; reload: () => Promise<void> }) {
   const [deletingId, setDeletingId] = useState<number | null>(null);
-
-  return (
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-      {rows.length === 0 ? (
-        <div className="p-8 text-center text-sm text-slate-400">No records found.</div>
-      ) : rows.map(row => (
-        <div key={row.id} className="flex items-center justify-between gap-4 border-b border-white/5 px-4 py-3 last:border-0">
-          <span className="text-sm text-slate-200">{row.text}</span>
-          {row.onDelete && (
-            <button
-              disabled={deletingId !== null}
-              aria-label={`Delete ${row.text}`}
-              className="rounded-lg p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={async () => {
-                if (!confirm("Delete this record?")) return;
-                setDeletingId(row.id);
-                try {
-                  await row.onDelete?.();
-                  await reload();
-                  toast.success("Deleted");
-                } catch (error: any) {
-                  toast.error(error?.message || "Delete failed");
-                } finally {
-                  setDeletingId(null);
-                }
-              }}
-            >
-              {deletingId === row.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-            </button>
-          )}
-        </div>
-      ))}
-    </div>
-  );
+  return <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+    {rows.length === 0 ? <div className="p-8 text-center text-sm text-slate-400">No records found.</div> : rows.map(row => (
+      <div key={row.id} className="flex items-center justify-between gap-4 border-b border-white/5 px-4 py-3 last:border-0">
+        <span className="text-sm text-slate-200">{row.text}</span>
+        {row.onDelete && <button disabled={deletingId !== null} aria-label={`Delete ${row.text}`} className="rounded-lg p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50" onClick={async () => { if (!confirm("Delete this record?")) return; setDeletingId(row.id); try { await row.onDelete?.(); await reload(); toast.success("Deleted"); } catch (error: any) { toast.error(error?.message || "Delete failed"); } finally { setDeletingId(null); } }}>{deletingId === row.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}</button>}
+      </div>
+    ))}
+  </div>;
 }
