@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import PageWrap from "../components/layout/PageWrap";
@@ -8,20 +8,13 @@ import StudentsTable from "../components/students/StudentsTable";
 import StudentFormModal, { StudentForm } from "../components/students/StudentFormModal";
 import DeleteStudentModal from "../components/students/DeleteStudentModal";
 import useStudents from "../hooks/useStudents";
-import { DEPARTMENTS } from "../data/mockData";
+import { fetchClassSections } from "../services/api";
 
-import type { Student } from "../types";
+import type { Student, ClassSection } from "../types";
 
 export default function StudentPage() {
-  const {
-    students,
-    loading,
-    error,
-    addStudent,
-    updateStudent,
-    deleteStudent,
-  } = useStudents();
-
+  const { students, loading, error, addStudent, updateStudent, deleteStudent } = useStudents();
+  const [classSections, setClassSections] = useState<ClassSection[]>([]);
   const [search, setSearch] = useState("");
   const [dept, setDept] = useState("All");
   const [page, setPage] = useState(1);
@@ -33,46 +26,38 @@ export default function StudentPage() {
     name: "",
     email: "",
     phone_no: "",
-    department: DEPARTMENTS.find((item) => item !== "All") ?? "",
-    custom_department: "",
+    class_section_id: "",
   });
+
+  useEffect(() => {
+    fetchClassSections()
+      .then(setClassSections)
+      .catch((err: any) => toast.error(err?.message || "Unable to load class sections"));
+  }, []);
+
+  const departments = useMemo(
+    () => ["All", ...Array.from(new Set(classSections.map((item) => item.department))).sort()],
+    [classSections],
+  );
 
   const filteredStudents = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
-
     return students.filter((student) => {
       const matchesDepartment = dept === "All" || student.department === dept;
-      const matchesQuery =
-        !normalizedSearch ||
-        [
-          student.name,
-          student.roll_no,
-          student.email,
-          student.phone_no ?? "",
-        ]
+      const matchesQuery = !normalizedSearch ||
+        [student.name, student.roll_no, student.email ?? "", student.phone_no ?? "", student.class_name ?? "", student.section ?? ""]
           .join(" ")
           .toLowerCase()
           .includes(normalizedSearch);
-
       return matchesDepartment && matchesQuery;
     });
   }, [dept, search, students]);
 
   const PER_PAGE = 8;
-  const paginatedStudents = filteredStudents.slice(
-    (page - 1) * PER_PAGE,
-    page * PER_PAGE
-  );
+  const paginatedStudents = filteredStudents.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   function resetForm() {
-    setForm({
-      roll_no: "",
-      name: "",
-      email: "",
-      phone_no: "",
-      department: DEPARTMENTS.find((item) => item !== "All") ?? "",
-      custom_department: "",
-    });
+    setForm({ roll_no: "", name: "", email: "", phone_no: "", class_section_id: "" });
     setEditStudent(null);
   }
 
@@ -82,17 +67,13 @@ export default function StudentPage() {
   }
 
   function openEdit(student: Student) {
-    const isStandardDepartment = DEPARTMENTS.includes(student.department);
-
     setForm({
       roll_no: student.roll_no,
       name: student.name,
-      email: student.email,
+      email: student.email ?? "",
       phone_no: student.phone_no ?? "",
-      department: isStandardDepartment ? student.department : "Other",
-      custom_department: isStandardDepartment ? "" : student.department,
+      class_section_id: student.class_section_id ? String(student.class_section_id) : "",
     });
-
     setEditStudent(student);
     setModalOpen(true);
   }
@@ -102,41 +83,31 @@ export default function StudentPage() {
       toast.error("Please enter name and roll number");
       return;
     }
-
     if (!form.email.trim() && !form.phone_no?.trim()) {
       toast.error("Please provide email or phone number");
       return;
     }
-
-    if (form.department === "Other" && !form.custom_department?.trim()) {
-      toast.error("Please enter a custom department name");
+    if (!form.class_section_id) {
+      toast.error("Please select a class and section");
       return;
     }
 
     const payload: Partial<Student> = {
       roll_no: form.roll_no.trim(),
       name: form.name.trim(),
-      email: form.email.trim(),
-      phone_no: form.phone_no?.trim() || undefined,
-      department:
-        form.department === "Other"
-          ? (form.custom_department?.trim() || "Other")
-          : form.department,
+      email: form.email.trim() || null,
+      phone_no: form.phone_no?.trim() || null,
+      class_section_id: Number(form.class_section_id),
     };
 
     try {
       if (editStudent) {
-        const updated = await updateStudent(editStudent.id, payload);
-        if (!updated) {
-          toast.error("Student not found");
-          return;
-        }
+        await updateStudent(editStudent.id, payload);
         toast.success("Student updated");
       } else {
         await addStudent(payload);
         toast.success("Student added");
       }
-
       setModalOpen(false);
       resetForm();
     } catch (err: any) {
@@ -145,16 +116,9 @@ export default function StudentPage() {
   }
 
   async function handleDelete() {
-    if (!deleteConfirm) {
-      return;
-    }
-
+    if (!deleteConfirm) return;
     try {
-      const deleted = await deleteStudent(deleteConfirm.id);
-      if (!deleted) {
-        toast.error("Student could not be deleted");
-        return;
-      }
+      await deleteStudent(deleteConfirm.id);
       toast.success("Student deleted");
       setDeleteConfirm(null);
     } catch (err: any) {
@@ -174,39 +138,20 @@ export default function StudentPage() {
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-base font-semibold text-white">Student Directory</h3>
-            <p className="text-sm text-[#94A3B8]">
-              Register new students, edit or remove existing records.
-            </p>
+            <p className="text-sm text-[#94A3B8]">Students are assigned to a class/section used by lectures and attendance.</p>
           </div>
-
-          {/* <button
-            type="button"
-            onClick={openAdd}
-            className="inline-flex items-center justify-center rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-400"
-          >
-            Add Student
-          </button> */}
         </div>
 
-        {error ? (
-          <div className="mb-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-100">
-            {error}
-          </div>
-        ) : null}
+        {error ? <div className="mb-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-100">{error}</div> : null}
 
         <StudentsToolbar
           search={search}
-          setSearch={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
+          setSearch={(value) => { setSearch(value); setPage(1); }}
           dept={dept}
-          setDept={(value) => {
-            setDept(value);
-            setPage(1);
-          }}
+          setDept={(value) => { setDept(value); setPage(1); }}
           setPage={setPage}
           onAdd={openAdd}
+          departments={departments}
         />
 
         <StudentsTable
@@ -224,6 +169,7 @@ export default function StudentPage() {
         open={modalOpen}
         editStudent={editStudent}
         form={form}
+        classSections={classSections}
         setForm={setForm}
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
