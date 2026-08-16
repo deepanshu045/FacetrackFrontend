@@ -195,10 +195,13 @@ export default function ReportsPage() {
     }
   }
 
-  const totalPresent = records.length;
+  const totalPresent = useMemo(
+    () => new Set(records.map((record) => record.student_id)).size,
+    [records]
+  );
   const totalStudents = students.length;
   const attendancePct = totalStudents
-    ? Math.round((records.length / totalStudents) * 100)
+    ? Math.round((totalPresent / totalStudents) * 100)
     : 0;
   const registered = students.filter((s: any) => Boolean(s.has_face || s.image_path)).length;
   const recognitionAccuracy = totalStudents ? `${Math.round((registered / totalStudents) * 100)}%` : "—";
