@@ -5,6 +5,7 @@ interface ReportsStatsProps {
   totalPresent: number;
   totalStudents: number;
   attendancePct: number;
+  recognitionAccuracy?: string;
 }
 
 export default function ReportsStats({
