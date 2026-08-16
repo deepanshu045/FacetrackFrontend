@@ -104,35 +104,23 @@ export async function fetchLectures(date?: string) { const lectures = (await req
 export async function createLecture(payload: {
   subject: string;
   class_section_id: number;
+  teacher_id?: number | null;
   start_time: string;
   end_time: string;
-  lecture_date?: string;
+  lecture_date: string;
 }) {
-  const sections = await fetchClassSections();
-  const section = sections.find((item) => item.id === payload.class_section_id);
-  if (!section) throw new Error("Selected class section was not found");
-
+  if (!payload.class_section_id) {
+    throw new Error("Class section is required");
+  }
   if (!payload.lecture_date) {
     throw new Error("Lecture date is required");
   }
 
-  const parts = payload.lecture_date.split("-").map(Number);
-  if (parts.length !== 3 || parts.some(Number.isNaN)) {
-    throw new Error("Invalid lecture date");
-  }
-
-  // Backend uses 0=Monday, 1=Tuesday, ... 6=Sunday.
-  const jsDay = new Date(parts[0], parts[1] - 1, parts[2]).getDay();
-  const dayOfWeek = (jsDay + 6) % 7;
-
   const backendPayload = {
     subject: payload.subject.trim(),
     class_section_id: payload.class_section_id,
-    department: section.department,
-    class_name: section.class_name,
-    section: section.section,
+    teacher_id: payload.teacher_id ?? null,
     lecture_date: payload.lecture_date,
-    day_of_week: dayOfWeek,
     start_time: payload.start_time,
     end_time: payload.end_time,
   };
@@ -149,7 +137,12 @@ export async function cancelLecture(id: number) { return request(`/lectures/${id
 export async function deleteLecture(id: number) { return request(`/lectures/${id}`, { method: "DELETE" }); }
 
 export async function fetchLectureSchedules() { return request("/lecture-schedules") as Promise<LectureSchedule[]>; }
-export async function createLectureSchedule(payload: { subject: string; class_section_id?: number | null; department?: string; class_name?: string; section?: string; day_of_week: number; start_time: string; end_time: string }) { return request("/lecture-schedules", { method: "POST", headers: getAuthHeaders("application/json"), body: JSON.stringify(payload) }) as Promise<LectureSchedule>; }
+export async function createLectureSchedule(payload: { subject: string; class_section_id: number; day_of_week: number; start_time: string; end_time: string }) {
+  if (!payload.class_section_id) {
+    throw new Error("Class section is required");
+  }
+  return request("/lecture-schedules", { method: "POST", headers: getAuthHeaders("application/json"), body: JSON.stringify(payload) }) as Promise<LectureSchedule>;
+}
 export async function deleteLectureSchedule(id: number) { return request(`/lecture-schedules/${id}`, { method: "DELETE" }); }
 
 export async function fetchCollegeClosures() { return request("/college-closures") as Promise<CollegeClosure[]>; }
