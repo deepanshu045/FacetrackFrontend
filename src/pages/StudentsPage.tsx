@@ -92,12 +92,27 @@ export default function StudentPage() {
       return;
     }
 
+    const selectedSection = classSections.find(
+      (item) => item.id === Number(form.class_section_id),
+    );
+
+    if (!selectedSection) {
+      toast.error("Selected class/section could not be found");
+      return;
+    }
+
+    // The backend requires department on StudentCreate/StudentUpdate.
+    // Department is derived from the selected class section so the frontend
+    // cannot accidentally send a department that does not match the section.
     const payload: Partial<Student> = {
       roll_no: form.roll_no.trim(),
       name: form.name.trim(),
       email: form.email.trim() || null,
       phone_no: form.phone_no?.trim() || null,
-      class_section_id: Number(form.class_section_id),
+      department: selectedSection.department,
+      class_section_id: selectedSection.id,
+      class_name: selectedSection.class_name,
+      section: selectedSection.section,
     };
 
     try {
