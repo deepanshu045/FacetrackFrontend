@@ -21,6 +21,7 @@ export default function StudentPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Student | null>(null);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<StudentForm>({
     roll_no: "",
     name: "",
@@ -79,6 +80,8 @@ export default function StudentPage() {
   }
 
   async function handleSave() {
+    if (saving) return;
+
     if (!form.roll_no.trim() || !form.name.trim()) {
       toast.error("Please enter name and roll number");
       return;
@@ -115,6 +118,7 @@ export default function StudentPage() {
       section: selectedSection.section,
     };
 
+    setSaving(true);
     try {
       if (editStudent) {
         await updateStudent(editStudent.id, payload);
@@ -126,7 +130,14 @@ export default function StudentPage() {
       setModalOpen(false);
       resetForm();
     } catch (err: any) {
-      toast.error(err?.message || "Unable to save student");
+      const message = String(err?.message || "Unable to save student");
+      if (message.toLowerCase().includes("duplicate") || message.toLowerCase().includes("uq_student_college_roll_no")) {
+        toast.error("This roll number is already registered in your college.");
+      } else {
+        toast.error(message);
+      }
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -144,7 +155,7 @@ export default function StudentPage() {
   return (
     <PageWrap>
       <GlassCard className="p-6 relative">
-        {loading && (
+        {loading && !saving && (
           <div className="absolute inset-0 z-20 flex items-center justify-center rounded-3xl bg-black/60 text-sm text-white">
             Loading students…
           </div>
@@ -186,8 +197,9 @@ export default function StudentPage() {
         form={form}
         classSections={classSections}
         setForm={setForm}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { if (!saving) setModalOpen(false); }}
         onSave={handleSave}
+        saving={saving}
       />
 
       <DeleteStudentModal
