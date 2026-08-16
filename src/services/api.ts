@@ -112,9 +112,8 @@ export async function createLecture(payload: {
   const section = sections.find((item) => item.id === payload.class_section_id);
   if (!section) throw new Error("Selected class section was not found");
 
-  let dayOfWeek: number;
   if (!payload.lecture_date) {
-    throw new Error("Lecture date is required to determine the day of week");
+    throw new Error("Lecture date is required");
   }
 
   const parts = payload.lecture_date.split("-").map(Number);
@@ -122,9 +121,9 @@ export async function createLecture(payload: {
     throw new Error("Invalid lecture date");
   }
 
-  // Backend uses 0=Monday, matching the weekly schedule endpoint.
+  // Backend uses 0=Monday, 1=Tuesday, ... 6=Sunday.
   const jsDay = new Date(parts[0], parts[1] - 1, parts[2]).getDay();
-  dayOfWeek = (jsDay + 6) % 7;
+  const dayOfWeek = (jsDay + 6) % 7;
 
   const backendPayload = {
     subject: payload.subject.trim(),
@@ -132,6 +131,7 @@ export async function createLecture(payload: {
     department: section.department,
     class_name: section.class_name,
     section: section.section,
+    lecture_date: payload.lecture_date,
     day_of_week: dayOfWeek,
     start_time: payload.start_time,
     end_time: payload.end_time,
