@@ -43,8 +43,24 @@ const PAGE_TITLES: Record<Page, string> = {
   closures: "College Closures",
 };
 
+function parseApiDateTime(value: unknown): Date | null {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
+  const withTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized)
+    ? normalized
+    : `${normalized}Z`;
+  const parsed = new Date(withTimezone);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function formatNotificationTime(createdAt: string) {
-  const seconds = Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000));
+  const parsed = parseApiDateTime(createdAt);
+  if (!parsed) return "Unknown time";
+
+  const seconds = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 1000));
   if (seconds < 60) return "Just now";
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
@@ -53,8 +69,8 @@ function formatNotificationTime(createdAt: string) {
 
 function formatNotificationDate(date?: string) {
   if (!date) return "";
-  const parsed = new Date(`${date}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return date;
+  const parsed = parseApiDateTime(date);
+  if (!parsed) return date;
   return parsed.toLocaleDateString(undefined, {
     day: "2-digit",
     month: "short",
@@ -143,10 +159,7 @@ export default function Navbar({
       className="fixed top-0 right-0 z-20 flex h-16 items-center gap-4 border-b border-white/6 bg-[#020817]/90 px-6 backdrop-blur-md transition-all duration-300"
       style={{ left: sidebarWidth }}
     >
-      <button
-        onClick={onMenuToggle}
-        className="text-[#94A3B8] hover:text-white lg:hidden"
-      >
+      <button onClick={onMenuToggle} className="text-[#94A3B8] hover:text-white lg:hidden">
         <Menu size={20} />
       </button>
 
@@ -155,10 +168,7 @@ export default function Navbar({
       <div className="flex-1" />
 
       <div className="relative hidden sm:block">
-        <Search
-          size={15}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-[#475569]"
-        />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#475569]" />
         <input
           value={search}
           onChange={(e) => {
@@ -180,16 +190,9 @@ export default function Navbar({
               <p className="px-4 py-3 text-sm text-[#94A3B8]">Searching...</p>
             ) : searchResults.length ? (
               searchResults.slice(0, 6).map((student) => (
-                <button
-                  key={student.id}
-                  type="button"
-                  onClick={selectStudent}
-                  className="block w-full px-4 py-3 text-left transition-colors hover:bg-white/5"
-                >
+                <button key={student.id} type="button" onClick={selectStudent} className="block w-full px-4 py-3 text-left transition-colors hover:bg-white/5">
                   <p className="text-sm font-medium text-white">{student.name}</p>
-                  <p className="mt-0.5 text-xs text-[#94A3B8]">
-                    {student.roll_no} · {student.department}
-                  </p>
+                  <p className="mt-0.5 text-xs text-[#94A3B8]">{student.roll_no} · {student.department}</p>
                 </button>
               ))
             ) : (
@@ -212,9 +215,7 @@ export default function Navbar({
           className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-[#94A3B8] transition-colors hover:bg-white/10 hover:text-white"
         >
           <Bell size={16} />
-          {notifications.length > 0 && !notificationsRead && (
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-500" />
-          )}
+          {notifications.length > 0 && !notificationsRead && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-blue-500" />}
         </button>
 
         <AnimatePresence>
@@ -230,13 +231,7 @@ export default function Navbar({
                   <p className="text-sm font-semibold text-white">Notifications</p>
                   <p className="mt-0.5 text-xs text-[#64748B]">Latest attendance activity</p>
                 </div>
-                <button
-                  type="button"
-                  aria-label="Refresh notifications"
-                  disabled={notificationsLoading}
-                  onClick={() => void loadNotifications()}
-                  className="rounded-lg p-2 text-[#94A3B8] transition-colors hover:bg-white/5 hover:text-white disabled:opacity-50"
-                >
+                <button type="button" aria-label="Refresh notifications" disabled={notificationsLoading} onClick={() => void loadNotifications()} className="rounded-lg p-2 text-[#94A3B8] transition-colors hover:bg-white/5 hover:text-white disabled:opacity-50">
                   <RefreshCw size={14} className={cn(notificationsLoading && "animate-spin")} />
                 </button>
               </div>
@@ -247,12 +242,7 @@ export default function Navbar({
                 <div className="max-h-80 overflow-y-auto">
                   {notifications.map((item) => (
                     <div key={item.id} className="flex items-start gap-3 border-b border-white/5 px-4 py-3 last:border-b-0">
-                      <span
-                        className={cn(
-                          "mt-1.5 h-2 w-2 flex-shrink-0 rounded-full",
-                          item.status?.toLowerCase() === "present" ? "bg-emerald-500" : "bg-blue-500"
-                        )}
-                      />
+                      <span className={cn("mt-1.5 h-2 w-2 flex-shrink-0 rounded-full", item.status?.toLowerCase() === "present" ? "bg-emerald-500" : "bg-blue-500")} />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-white">{item.message}</p>
                         <p className="mt-1 text-xs text-[#94A3B8]">
@@ -260,9 +250,7 @@ export default function Navbar({
                           {formatNotificationTime(item.created_at)}
                         </p>
                         {item.attendance_date && (
-                          <p className="mt-0.5 text-xs text-[#64748B]">
-                            Attendance date: {formatNotificationDate(item.attendance_date)}
-                          </p>
+                          <p className="mt-0.5 text-xs text-[#64748B]">Attendance date: {formatNotificationDate(item.attendance_date)}</p>
                         )}
                       </div>
                     </div>
@@ -280,13 +268,7 @@ export default function Navbar({
       </div>
 
       <div className="relative">
-        <button
-          onClick={() => {
-            setNotifOpen(false);
-            setProfileOpen((v) => !v);
-          }}
-          className="flex items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-white/5"
-        >
+        <button onClick={() => { setNotifOpen(false); setProfileOpen((v) => !v); }} className="flex items-center gap-2.5 rounded-xl px-2 py-1 transition-colors hover:bg-white/5">
           <Avatar name="Admin User" size="sm" />
           <div className="hidden text-left sm:block">
             <p className="text-sm font-medium leading-none text-white">Admin User</p>
@@ -297,35 +279,16 @@ export default function Navbar({
 
         <AnimatePresence>
           {profileOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.96 }}
-              className="absolute right-0 top-12 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#1E293B] shadow-2xl"
-            >
-              {[
-                { icon: User, label: "Profile", page: "profile" as const },
-                { icon: Settings, label: "Settings", page: "settings" as const },
-              ].map(({ icon: Icon, label, page: targetPage }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => {
-                    setProfileOpen(false);
-                    onPage(targetPage);
-                  }}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-sm text-[#94A3B8] transition-colors hover:bg-white/5 hover:text-white"
-                >
+            <motion.div initial={{ opacity: 0, y: 8, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8, scale: 0.96 }} className="absolute right-0 top-12 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#1E293B] shadow-2xl">
+              {[{ icon: User, label: "Profile", page: "profile" as const }, { icon: Settings, label: "Settings", page: "settings" as const }].map(({ icon: Icon, label, page: targetPage }) => (
+                <button key={label} type="button" onClick={() => { setProfileOpen(false); onPage(targetPage); }} className="flex w-full items-center gap-3 px-4 py-3 text-sm text-[#94A3B8] transition-colors hover:bg-white/5 hover:text-white">
                   <Icon size={15} />
                   {label}
                 </button>
               ))}
 
               <div className="border-t border-white/10">
-                <button
-                  onClick={logout}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-400 transition-colors hover:bg-red-500/10"
-                >
+                <button onClick={logout} className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-400 transition-colors hover:bg-red-500/10">
                   <LogOut size={15} />
                   Logout
                 </button>
