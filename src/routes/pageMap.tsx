@@ -7,7 +7,7 @@ import ProfilePage from "../pages/ProfilePage";
 import SettingsPage from "../pages/SettingsPage";
 import AdminOperationsPage from "../pages/AdminOperationsPage";
 import WeeklySchedulePage from "../pages/WeeklySchedulePage";
-
+import LecturesPage from "../pages/LecturesPage";
 import type { Page } from "../types";
 import type { ReactNode } from "react";
 
@@ -21,7 +21,7 @@ export const pageMap: Record<Page, ReactNode> = {
   settings: <SettingsPage />,
   "class-sections": <AdminOperationsPage mode="class-sections" />,
   teachers: <AdminOperationsPage mode="teachers" />,
-  lectures: <AdminOperationsPage mode="lectures" />,
+  lectures: <LecturesPage />,
   schedules: <WeeklySchedulePage />,
   closures: <AdminOperationsPage mode="closures" />,
   login: <DashboardPage />,
