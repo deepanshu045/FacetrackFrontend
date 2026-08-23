@@ -11,6 +11,8 @@ import { clearAuthToken, getStoredAuthToken, getStoredRole, setAuthToken, setAut
 import { AppProvider } from "../context/AppContext";
 import type { Page } from "../types";
 
+const TEACHER_ALLOWED_PAGES = new Set<Page>(["teacher-dashboard", "profile"]);
+
 export default function App() {
   const isPublicAttendancePage = window.location.pathname === "/student-attendance";
   const isCollegeVerificationPage = window.location.pathname === "/verify-college";
@@ -21,8 +23,20 @@ export default function App() {
   const isLoggedIn = !!token;
   const sidebarWidth = collapsed ? 72 : 240;
   const logout = () => { clearAuthToken(); setToken(null); setRole("admin"); setPage("login"); };
-  function handlePageChange(next: Page) { setPage(next); }
+
+  function handlePageChange(next: Page) {
+    if (role === "teacher" && !TEACHER_ALLOWED_PAGES.has(next)) {
+      setPage("teacher-dashboard");
+      return;
+    }
+    setPage(next);
+  }
+
   useEffect(() => { setAuthErrorHandler(logout); return () => setAuthErrorHandler(null); }, []);
+  useEffect(() => {
+    if (role === "teacher" && !TEACHER_ALLOWED_PAGES.has(page)) setPage("teacher-dashboard");
+  }, [role, page]);
+
   if (isPublicAttendancePage) return <><Toaster position="top-right" theme="dark" /><PublicAttendancePage /></>;
   if (isCollegeVerificationPage) return <><Toaster position="top-right" theme="dark" /><VerifyCollegePage /></>;
   if (!isLoggedIn) return <><Toaster position="top-right" theme="dark" /><LoginPage onLogin={(nextToken, nextRole) => { setAuthToken(nextToken); setRole(nextRole); setToken(nextToken); setPage(nextRole === "teacher" ? "teacher-dashboard" : "dashboard"); }} /></>;
