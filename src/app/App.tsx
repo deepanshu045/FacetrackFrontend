@@ -20,25 +20,11 @@ export default function App() {
   const [collapsed, setCollapsed] = useState(false);
   const isLoggedIn = !!token;
   const sidebarWidth = collapsed ? 72 : 240;
-
   const logout = () => { clearAuthToken(); setToken(null); setRole("admin"); setPage("login"); };
   function handlePageChange(next: Page) { setPage(next); }
-
   useEffect(() => { setAuthErrorHandler(logout); return () => setAuthErrorHandler(null); }, []);
-
   if (isPublicAttendancePage) return <><Toaster position="top-right" theme="dark" /><PublicAttendancePage /></>;
   if (isCollegeVerificationPage) return <><Toaster position="top-right" theme="dark" /><VerifyCollegePage /></>;
-
   if (!isLoggedIn) return <><Toaster position="top-right" theme="dark" /><LoginPage onLogin={(nextToken, nextRole) => { setAuthToken(nextToken); setRole(nextRole); setToken(nextToken); setPage(nextRole === "teacher" ? "teacher-dashboard" : "dashboard"); }} /></>;
-
-  return <AppProvider value={{ logout }}>
-    <div className="min-h-screen bg-[#020817] font-[Inter,system-ui,sans-serif]">
-      <Toaster position="top-right" theme="dark" />
-      <Sidebar role={role} page={page} onPage={handlePageChange} collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-      <div className="transition-all duration-300" style={{ marginLeft: sidebarWidth }}>
-        <Navbar page={page} sidebarWidth={sidebarWidth} onMenuToggle={() => setCollapsed((c) => !c)} onPage={handlePageChange} onLogout={logout} />
-        <main className="min-h-screen p-6 pt-16"><AnimatePresence mode="wait"><motion.div key={page} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>{pageMap[page]}</motion.div></AnimatePresence></main>
-      </div>
-    </div>
-  </AppProvider>;
+  return <AppProvider value={{ logout }}><div className="min-h-screen bg-[#020817] font-[Inter,system-ui,sans-serif]"><Toaster position="top-right" theme="dark" /><Sidebar role={role} page={page} onPage={handlePageChange} collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} /><div className="transition-all duration-300" style={{ marginLeft: sidebarWidth }}><Navbar role={role} page={page} sidebarWidth={sidebarWidth} onMenuToggle={() => setCollapsed((c) => !c)} onPage={handlePageChange} onLogout={logout} /><main className="min-h-screen p-6 pt-16"><AnimatePresence mode="wait"><motion.div key={page} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>{pageMap[page]}</motion.div></AnimatePresence></main></div></div></AppProvider>;
 }
