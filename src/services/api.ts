@@ -91,13 +91,8 @@ export async function updateStudent(id: number, payload: Partial<Student>) { ret
 export async function deleteStudent(id: number) { return request(`/students/${id}`, { method: "DELETE" }); }
 
 export async function uploadFace(studentId: number, file: Blob) {
-  if (!file.type.startsWith("image/")) {
-    throw new Error("Please select an image file.");
-  }
-  if (file.size > 10 * 1024 * 1024) {
-    throw new Error("Image must be smaller than 10 MB.");
-  }
-
+  if (!file.type.startsWith("image/")) throw new Error("Please select an image file.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("Image must be smaller than 10 MB.");
   const formData = new FormData();
   formData.append("file", file, `face-${studentId}.jpg`);
   return request(`/students/upload-face/${studentId}`, { method: "POST", headers: getAuthHeaders(), body: formData }) as Promise<{ message: string }>;
@@ -112,11 +107,7 @@ export async function assignTeacherClass(teacherId: number, classSectionId: numb
 export async function fetchTeacherLectures() { return request("/teachers/me/lectures") as Promise<Lecture[]>; }
 
 export async function fetchLectures(date?: string) { const lectures = (await request("/lectures")) as Lecture[]; return date ? lectures.filter((lecture) => lecture.lecture_date === date) : lectures; }
-export async function createLecture(payload: { subject: string; class_section_id: number | null; teacher_id?: number | null; start_time: string; end_time: string; lecture_date: string }) {
-  if (!payload.class_section_id) throw new Error("Class section is required");
-  if (!payload.lecture_date) throw new Error("Lecture date is required");
-  return request("/lectures", { method: "POST", headers: getAuthHeaders("application/json"), body: JSON.stringify({ subject: payload.subject.trim(), class_section_id: payload.class_section_id, teacher_id: payload.teacher_id ?? null, lecture_date: payload.lecture_date, start_time: payload.start_time, end_time: payload.end_time }) }) as Promise<Lecture>;
-}
+export async function createLecture(payload: { subject: string; class_section_id: number | null; teacher_id?: number | null; start_time: string; end_time: string; lecture_date: string }) { if (!payload.class_section_id) throw new Error("Class section is required"); if (!payload.lecture_date) throw new Error("Lecture date is required"); return request("/lectures", { method: "POST", headers: getAuthHeaders("application/json"), body: JSON.stringify({ subject: payload.subject.trim(), class_section_id: payload.class_section_id, teacher_id: payload.teacher_id ?? null, lecture_date: payload.lecture_date, start_time: payload.start_time, end_time: payload.end_time }) }) as Promise<Lecture>; }
 export async function updateLecture(id: number, payload: Partial<Lecture>) { return request(`/lectures/${id}`, { method: "PUT", headers: getAuthHeaders("application/json"), body: JSON.stringify(payload) }) as Promise<Lecture>; }
 export async function cancelLecture(id: number) { return request(`/lectures/${id}/cancel`, { method: "POST" }) as Promise<Lecture>; }
 export async function deleteLecture(id: number) { return request(`/lectures/${id}`, { method: "DELETE" }); }
@@ -139,6 +130,16 @@ export async function markAttendanceForStudent(studentId: number) { return reque
 export async function getLectureAttendance(lectureId: number) { return request(`/teachers/me/lectures/${lectureId}/attendance`) as Promise<{ student_id: number; roll_no: string; name: string; status: "Present" | "Absent"; attendance_id: number | null }[]>; }
 export async function markTeacherAttendance(lectureId: number, studentId: number, status = "Present") { return request(`/teachers/me/lectures/${lectureId}/attendance${queryString({ student_id: studentId, status_value: status })}`, { method: "POST" }); }
 export async function markAllTeacherAttendance(lectureId: number, status = "Present") { return request(`/teachers/me/lectures/${lectureId}/mark-all${queryString({ status_value: status })}`, { method: "POST" }); }
+
+export async function fetchDesktopStatus() {
+  return request("/recognition/desktop-status") as Promise<{ online: boolean; last_seen_at: string | null; timeout_seconds: number }>;
+}
+
+export async function verifyCameraAccessCode(accessCode: string) {
+  const code = accessCode.trim();
+  if (!code) throw new Error("Camera access code is required.");
+  return request(`/public/college/access-code/${encodeURIComponent(code)}`) as Promise<{ college_id: number; college_slug: string; college_name: string }>;
+}
 
 export function setAuthToken(token: string) { localStorage.setItem("token", token); }
 export function clearAuthToken() { localStorage.removeItem("token"); }
