@@ -199,59 +199,111 @@ export default function LiveAttendancePage() {
 
   return (
     <PageWrap>
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="flex items-center gap-2"><ScanFace className="text-blue-400" size={22} /><h1 className="text-2xl font-semibold text-white">Live Attendance</h1></div>
-          <p className="mt-1 text-sm text-[#94A3B8]">Monitor attendance from the FaceTrack Desktop recognition application.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-[#CBD5E1]"><Clock3 className="mr-2 inline" size={14} />{now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</div>
-          <Button variant="secondary" onClick={() => void refreshData()} disabled={refreshing}>{refreshing ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}{refreshing ? "Syncing…" : "Sync"}</Button>
+      <div className="mb-6 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-blue-500/[0.13] via-white/[0.035] to-violet-500/[0.08] p-5 shadow-2xl shadow-black/10 sm:p-7">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="relative rounded-2xl border border-blue-400/20 bg-blue-500/10 p-3 text-blue-300 shadow-lg shadow-blue-500/10">
+              <ScanFace size={28} />
+              {desktopOnline && <span className="absolute -right-1 -top-1 h-3 w-3 animate-pulse rounded-full bg-emerald-400 ring-4 ring-[#101827]" />}
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Live Attendance</h1>
+                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${desktopOnline ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300" : "border-amber-400/20 bg-amber-400/10 text-amber-300"}`}>
+                  {desktopOnline ? "● Live recognition" : "● Waiting for desktop"}
+                </span>
+              </div>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#94A3B8]">Real-time attendance monitoring powered by FaceTrack Desktop. Recognition events sync automatically every few seconds.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-start lg:self-auto">
+            <div className="hidden rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs text-[#CBD5E1] sm:block">
+              <Clock3 className="mr-2 inline text-blue-300" size={14} />{now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </div>
+            <Button variant="secondary" onClick={() => void refreshData()} disabled={refreshing}>
+              {refreshing ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+              {refreshing ? "Syncing…" : "Sync now"}
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <GlassCard className="p-4"><div className="flex items-center gap-3"><div className={`rounded-xl p-2 ${backendOnline ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>{backendOnline ? <Wifi size={18} /> : <WifiOff size={18} />}</div><div><p className="text-xs text-[#64748B]">Backend</p><p className="mt-1 text-sm font-medium text-white">{backendOnline ? "Connected" : "Offline"}</p></div></div></GlassCard>
-        <GlassCard className="p-4"><div className="flex items-center gap-3"><div className={`rounded-xl p-2 ${desktopOnline ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}`}>{desktopOnline ? <Laptop size={18} /> : <WifiOff size={18} />}</div><div><p className="text-xs text-[#64748B]">Desktop recognition</p><p className="mt-1 text-sm font-medium text-white">{desktopOnline ? "Online" : "Offline"}</p><p className="mt-1 text-[11px] text-[#64748B]">Last seen {formatLastSeen(desktopLastSeen)}</p></div></div></GlassCard>
-        <GlassCard className="p-4"><div className="flex items-center gap-3"><div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-400"><UserRoundCheck size={18} /></div><div><p className="text-xs text-[#64748B]">Present today</p><p className="mt-1 text-sm font-medium text-white">{presentStudentIds.size} students</p></div></div></GlassCard>
-        <GlassCard className="p-4"><div className="flex items-center gap-3"><div className="rounded-xl bg-violet-500/10 p-2 text-violet-400"><Users size={18} /></div><div><p className="text-xs text-[#64748B]">Face profiles</p><p className="mt-1 text-sm font-medium text-white">{studentsWithFaces.length} ready</p></div></div></GlassCard>
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <GlassCard className="group p-4 transition-transform duration-200 hover:-translate-y-0.5">
+          <div className="flex items-center justify-between"><div className={`rounded-xl p-2.5 ${backendOnline ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>{backendOnline ? <Wifi size={18} /> : <WifiOff size={18} />}</div><span className="text-[10px] uppercase tracking-wider text-[#475569]">API</span></div>
+          <p className="mt-4 text-xs text-[#64748B]">Backend connection</p><p className="mt-1 text-lg font-semibold text-white">{backendOnline ? "Connected" : "Offline"}</p>
+        </GlassCard>
+        <GlassCard className="group p-4 transition-transform duration-200 hover:-translate-y-0.5">
+          <div className="flex items-center justify-between"><div className={`rounded-xl p-2.5 ${desktopOnline ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}`}>{desktopOnline ? <Laptop size={18} /> : <WifiOff size={18} />}</div><span className="text-[10px] uppercase tracking-wider text-[#475569]">5s sync</span></div>
+          <p className="mt-4 text-xs text-[#64748B]">Desktop recognition</p><p className="mt-1 text-lg font-semibold text-white">{desktopOnline ? "Online" : "Offline"}</p><p className="mt-1 text-[11px] text-[#64748B]">Last seen {formatLastSeen(desktopLastSeen)}</p>
+        </GlassCard>
+        <GlassCard className="group p-4 transition-transform duration-200 hover:-translate-y-0.5">
+          <div className="flex items-center justify-between"><div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-400"><UserRoundCheck size={18} /></div><span className="text-[10px] uppercase tracking-wider text-[#475569]">Today</span></div>
+          <p className="mt-4 text-xs text-[#64748B]">Students present</p><p className="mt-1 text-lg font-semibold text-white">{presentStudentIds.size}</p>
+        </GlassCard>
+        <GlassCard className="group p-4 transition-transform duration-200 hover:-translate-y-0.5">
+          <div className="flex items-center justify-between"><div className="rounded-xl bg-violet-500/10 p-2.5 text-violet-400"><Users size={18} /></div><span className="text-[10px] uppercase tracking-wider text-[#475569]">Ready</span></div>
+          <p className="mt-4 text-xs text-[#64748B]">Face profiles</p><p className="mt-1 text-lg font-semibold text-white">{studentsWithFaces.length}</p>
+        </GlassCard>
       </div>
 
       <div className="mb-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <GlassCard className="p-6">
-          <div className="flex items-start gap-3"><div className="rounded-xl bg-blue-500/10 p-3 text-blue-300"><KeyRound size={21} /></div><div><h2 className="font-semibold text-white">Desktop Camera Access Code</h2><p className="mt-1 text-sm text-[#94A3B8]">Generate a secure code for the FaceTrack Desktop recognition application. The browser does not access the camera.</p></div></div>
-          <div className="mt-5 rounded-2xl border border-white/10 bg-[#0F172A] p-4">
-            <p className="mb-2 text-xs uppercase tracking-wider text-[#64748B]">Current access code</p>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <GlassCard className="p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3"><div className="rounded-xl bg-blue-500/10 p-3 text-blue-300"><KeyRound size={21} /></div><div><h2 className="font-semibold text-white">Desktop camera access</h2><p className="mt-1 text-sm leading-5 text-[#94A3B8]">Pair the recognition app securely without exposing the browser camera.</p></div></div>
+            <span className="hidden rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-wider text-[#64748B] sm:block">Secure pairing</span>
+          </div>
+          <div className="mt-5 rounded-2xl border border-white/10 bg-[#0B1220] p-4 sm:p-5">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#64748B]">Access code</p>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
               <Input value={accessCode} onChange={(event) => setAccessCode(event.target.value.toUpperCase())} placeholder="XXXX-XXXX-XXXX" aria-label="Desktop camera access code" />
-              <div className="flex shrink-0 gap-2">
+              <div className="flex flex-wrap gap-2 lg:shrink-0">
                 <Button variant="secondary" onClick={() => { setAccessCode(generateAccessCode()); setCopied(false); }}><KeyRound size={15} />Generate</Button>
                 <Button variant="secondary" onClick={() => void copyAccessCode()} disabled={!accessCode}>{copied ? <Check size={15} /> : <Copy size={15} />}{copied ? "Copied" : "Copy"}</Button>
                 <Button variant="primary" onClick={() => void saveAccessCode()} disabled={savingCode}>{savingCode ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}{savingCode ? "Saving…" : "Save"}</Button>
               </div>
             </div>
           </div>
-          <p className="mt-3 text-xs text-[#64748B]">Keep the code private. Enter the saved code in FaceTrack Desktop when connecting the recognition application to this college.</p>
+          <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-[#64748B]"><ShieldCheck className="mt-0.5 shrink-0" size={14} />Keep this code private. Enter it once in FaceTrack Desktop to connect recognition to this college.</p>
         </GlassCard>
 
-        <GlassCard className="p-6">
-          <div className="mb-5 flex items-start gap-3"><div className="rounded-xl bg-blue-500/10 p-2 text-blue-400"><ShieldCheck size={20} /></div><div><h3 className="font-semibold text-white">Recognition Status</h3><p className="mt-1 text-sm text-[#94A3B8]">Connection between the desktop app and backend.</p></div></div>
-          <div className={`rounded-2xl border p-5 ${desktopOnline ? "border-emerald-500/20 bg-emerald-500/10" : "border-amber-500/20 bg-amber-500/10"}`}>
-            <p className={`text-lg font-semibold ${desktopOnline ? "text-emerald-300" : "text-amber-300"}`}>{desktopOnline ? "Desktop app is online" : "Desktop app is offline"}</p>
-            <p className="mt-2 text-sm text-[#CBD5E1]">{desktopOnline ? "Recognition heartbeats are reaching the backend." : "Start FaceTrack Desktop and use the saved camera access code."}</p>
-            <p className="mt-3 text-xs text-[#64748B]">Last heartbeat: {formatLastSeen(desktopLastSeen)}</p>
+        <GlassCard className="p-5 sm:p-6">
+          <div className="mb-4 flex items-start gap-3"><div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-400"><ShieldCheck size={20} /></div><div><h3 className="font-semibold text-white">Session status</h3><p className="mt-1 text-sm text-[#94A3B8]">Live connection and current lecture.</p></div></div>
+          <div className={`rounded-2xl border p-4 ${desktopOnline ? "border-emerald-500/20 bg-emerald-500/[0.07]" : "border-amber-500/20 bg-amber-500/[0.07]"}`}>
+            <div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-full ${desktopOnline ? "animate-pulse bg-emerald-400" : "bg-amber-400"}`} /><p className={`text-sm font-semibold ${desktopOnline ? "text-emerald-300" : "text-amber-300"}`}>{desktopOnline ? "Desktop app is online" : "Desktop app is offline"}</p></div>
+            <p className="mt-2 text-xs leading-5 text-[#CBD5E1]">{desktopOnline ? "Recognition heartbeats are reaching the backend." : "Start FaceTrack Desktop and use the saved camera access code."}</p>
+            <p className="mt-2 text-[11px] text-[#64748B]">Last heartbeat: {formatLastSeen(desktopLastSeen)}</p>
           </div>
-          {activeLecture ? <div className="mt-5 rounded-2xl border border-white/10 bg-[#0F172A] p-4"><p className="text-xs uppercase tracking-wider text-[#64748B]">Current lecture</p><p className="mt-1 text-lg font-semibold text-white">{activeLecture.subject}</p><p className="mt-1 text-sm text-[#94A3B8]">{activeLecture.department} · {activeLecture.class_name} · Section {activeLecture.section}</p><p className="mt-2 text-xs text-[#64748B]">{formatTime(activeLecture.start_time)} – {formatTime(activeLecture.end_time)}</p></div> : <div className="mt-5 flex gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4"><CircleAlert className="shrink-0 text-amber-300" size={18} /><p className="text-sm text-amber-100/80">No active lecture. Attendance will be accepted when a scheduled lecture is active.</p></div>}
+          {activeLecture ? (
+            <div className="mt-4 rounded-2xl border border-blue-400/15 bg-blue-500/[0.06] p-4">
+              <div className="mb-2 flex items-center justify-between gap-3"><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-300">Live lecture</p><span className="rounded-full bg-blue-400/10 px-2 py-1 text-[10px] font-medium text-blue-300">ACTIVE</span></div>
+              <p className="text-lg font-semibold text-white">{activeLecture.subject}</p><p className="mt-1 text-xs text-[#94A3B8]">{activeLecture.department} · {activeLecture.class_name} · Section {activeLecture.section}</p><p className="mt-3 text-xs font-medium text-[#CBD5E1]">{formatTime(activeLecture.start_time)} – {formatTime(activeLecture.end_time)}</p>
+            </div>
+          ) : (
+            <div className="mt-4 flex gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-4"><CircleAlert className="mt-0.5 shrink-0 text-amber-300" size={18} /><div><p className="text-sm font-medium text-amber-200">No active lecture</p><p className="mt-1 text-xs leading-5 text-amber-100/60">Attendance will be accepted when a scheduled lecture is active.</p></div></div>
+          )}
         </GlassCard>
       </div>
 
       <div className="mb-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <GlassCard className="p-6"><div className="mb-5 flex items-center justify-between"><div><h3 className="text-base font-semibold text-white">Recent Recognition</h3><p className="mt-1 text-sm text-[#94A3B8]">Attendance events recorded by the desktop app.</p></div><span className="rounded-full bg-white/5 px-3 py-1 text-xs text-[#CBD5E1]">{presentStudentIds.size} present</span></div><div className="overflow-x-auto rounded-2xl border border-white/10 bg-[#0F172A]"><table className="w-full text-sm"><thead><tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-[#64748B]"><th className="px-4 py-3">Student</th><th className="px-4 py-3">Roll</th><th className="px-4 py-3">Recognized</th></tr></thead><tbody className="divide-y divide-white/5">{attendanceList.length === 0 ? <tr><td colSpan={3} className="py-12 text-center text-[#64748B]">Waiting for recognition events…</td></tr> : attendanceList.slice(0, 12).map((record) => <tr key={`${record.student_id}-${record.attendance_date}-${record.attendance_time}`} className="hover:bg-white/5"><td className="px-4 py-3"><div className="flex items-center gap-3"><Avatar name={record.name} size="sm" /><span className="text-white">{record.name}</span></div></td><td className="px-4 py-3 text-[#94A3B8]">{record.roll_no}</td><td className="px-4 py-3 text-[#94A3B8]">{formatAttendanceTime(record.attendance_time)}</td></tr>)}</tbody></table></div></GlassCard>
+        <GlassCard className="overflow-hidden p-0">
+          <div className="flex items-center justify-between gap-4 border-b border-white/10 p-5 sm:p-6"><div><div className="flex items-center gap-2"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /><h3 className="text-base font-semibold text-white">Recent recognition</h3></div><p className="mt-1 text-sm text-[#94A3B8]">Latest attendance events from the desktop app.</p></div><span className="rounded-full border border-emerald-400/15 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-300">{presentStudentIds.size} present</span></div>
+          <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-white/10 bg-white/[0.015] text-left text-[10px] uppercase tracking-[0.16em] text-[#64748B]"><th className="px-5 py-3.5 font-medium">Student</th><th className="px-5 py-3.5 font-medium">Roll number</th><th className="px-5 py-3.5 text-right font-medium">Time</th></tr></thead><tbody className="divide-y divide-white/5">{attendanceList.length === 0 ? <tr><td colSpan={3} className="py-14 text-center"><div className="mx-auto mb-3 w-fit rounded-full bg-white/5 p-3 text-[#64748B]"><ScanFace size={20} /></div><p className="text-sm text-[#94A3B8]">Waiting for recognition events…</p><p className="mt-1 text-xs text-[#64748B]">Recognized students will appear here automatically.</p></td></tr> : attendanceList.slice(0, 12).map((record, index) => <tr key={`${record.student_id}-${record.attendance_date}-${record.attendance_time}`} className={`transition-colors hover:bg-white/[0.035] ${index === 0 ? "bg-emerald-400/[0.025]" : ""}`}><td className="px-5 py-3.5"><div className="flex items-center gap-3"><Avatar name={record.name} size="sm" /><div><p className="font-medium text-white">{record.name}</p>{index === 0 && <span className="text-[10px] font-medium text-emerald-400">Latest recognition</span>}</div></div></td><td className="px-5 py-3.5 text-[#94A3B8]">{record.roll_no}</td><td className="px-5 py-3.5 text-right font-medium text-[#CBD5E1]">{formatAttendanceTime(record.attendance_time)}</td></tr>)}</tbody></table></div>
+        </GlassCard>
 
-        <GlassCard className="p-6"><div className="mb-5"><h3 className="text-base font-semibold text-white">Manual Fallback</h3><p className="mt-1 text-sm text-[#94A3B8]">Use only when desktop recognition cannot identify a student.</p></div><div className="space-y-4"><Input label="Search student" placeholder="Name or roll number" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} disabled={studentsLoading || students.length === 0} /><Select label="Student" value={selectedStudentId ?? ""} onChange={(event) => setSelectedStudentId(Number(event.target.value) || null)} disabled={studentsLoading || filteredStudents.length === 0}>{filteredStudents.length === 0 ? <option value="">No matching student</option> : filteredStudents.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.roll_no}</option>)}</Select>{selectedStudent && <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0F172A] p-4"><Avatar name={selectedStudent.name} size="md" /><div className="min-w-0"><p className="truncate text-sm font-semibold text-white">{selectedStudent.name}</p><p className="truncate text-xs text-[#94A3B8]">{selectedStudent.roll_no} · {selectedStudent.department}</p></div></div>}<Button variant="primary" className="w-full" onClick={handleManualAttendance} disabled={marking || !selectedStudentId || !activeLecture}>{marking ? <><Loader2 size={15} className="animate-spin" />Marking…</> : <><UserRoundCheck size={15} />Mark Attendance Manually</>}</Button></div></GlassCard>
+        <GlassCard className="p-5 sm:p-6">
+          <div className="mb-5 flex items-start gap-3"><div className="rounded-xl bg-violet-500/10 p-2.5 text-violet-300"><UserRoundCheck size={20} /></div><div><h3 className="text-base font-semibold text-white">Manual fallback</h3><p className="mt-1 text-sm leading-5 text-[#94A3B8]">Use only when recognition cannot identify a student.</p></div></div>
+          <div className="space-y-4">
+            <Input label="Search student" placeholder="Name or roll number" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} disabled={studentsLoading || students.length === 0} />
+            <Select label="Student" value={selectedStudentId ?? ""} onChange={(event) => setSelectedStudentId(Number(event.target.value) || null)} disabled={studentsLoading || filteredStudents.length === 0}>{filteredStudents.length === 0 ? <option value="">No matching student</option> : filteredStudents.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.roll_no}</option>)}</Select>
+            {selectedStudent && <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#0B1220] p-4"><div className="flex min-w-0 items-center gap-3"><Avatar name={selectedStudent.name} size="md" /><div className="min-w-0"><p className="truncate text-sm font-semibold text-white">{selectedStudent.name}</p><p className="truncate text-xs text-[#94A3B8]">{selectedStudent.roll_no} · {selectedStudent.department}</p></div></div>{presentStudentIds.has(selectedStudent.id) && <span className="shrink-0 rounded-full bg-emerald-400/10 px-2 py-1 text-[10px] font-medium text-emerald-300">Present</span>}</div>}
+            <Button variant="primary" className="w-full py-2.5" onClick={handleManualAttendance} disabled={marking || !selectedStudentId || !activeLecture}>{marking ? <><Loader2 size={15} className="animate-spin" />Marking…</> : <><UserRoundCheck size={15} />Mark attendance manually</>}</Button>
+            {!activeLecture && <p className="text-center text-[11px] text-amber-300/70">Manual attendance is disabled until a lecture is active.</p>}
+          </div>
+        </GlassCard>
       </div>
 
-      <GlassCard className="p-5"><div className="flex flex-col gap-2 text-sm text-[#94A3B8] sm:flex-row sm:items-center sm:justify-between"><span>Last backend sync: {lastRefreshAt || "—"}</span><span>Latest recognized: <strong className="text-white">{lastRecognized?.name || "Waiting…"}</strong>{lastRecognized ? ` · ${formatAttendanceTime(lastRecognized.attendance_time)}` : ""}</span></div></GlassCard>
+      <GlassCard className="p-4 sm:p-5"><div className="flex flex-col gap-2 text-xs text-[#64748B] sm:flex-row sm:items-center sm:justify-between"><span>Last backend sync: <strong className="font-medium text-[#94A3B8]">{lastRefreshAt || "—"}</strong></span><span>Latest recognized: <strong className="font-medium text-white">{lastRecognized?.name || "Waiting…"}</strong>{lastRecognized ? ` · ${formatAttendanceTime(lastRecognized.attendance_time)}` : ""}</span></div></GlassCard>
     </PageWrap>
   );
 }
