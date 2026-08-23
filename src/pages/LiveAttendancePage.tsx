@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Camera,
-  CameraOff,
-  CheckCircle2,
+  Check,
   CircleAlert,
   Clock3,
+  Copy,
   KeyRound,
   Laptop,
   Loader2,
@@ -25,7 +24,7 @@ import Input from "../components/ui/Input";
 import Select from "../components/ui/Select";
 import Avatar from "../components/ui/Avatar";
 import useStudents from "../hooks/useStudents";
-import { fetchDesktopStatus, fetchLectures, fetchTodayAttendance, markAttendanceForStudent } from "../services/api";
+import { fetchDesktopStatus, fetchLectures, fetchTodayAttendance, markAttendanceForStudent, setCollegeAccessCode } from "../services/api";
 import type { AttendanceReport, Lecture } from "../types";
 
 function localDateString(date: Date) {
@@ -66,6 +65,13 @@ function formatLastSeen(value?: string | null) {
   return parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+function generateAccessCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  const code = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+  return `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8)}`;
+}
+
 export default function LiveAttendancePage() {
   const { students, loading: studentsLoading } = useStudents();
   const [attendanceList, setAttendanceList] = useState<AttendanceReport[]>([]);
@@ -80,14 +86,9 @@ export default function LiveAttendancePage() {
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [lastRecognized, setLastRecognized] = useState<AttendanceReport | null>(null);
-
-  const [cameraAccessCode, setCameraAccessCode] = useState("");
-  const [cameraVerified, setCameraVerified] = useState(false);
-  const [cameraLoading, setCameraLoading] = useState(false);
-  const [cameraRunning, setCameraRunning] = useState(false);
-  const [cameraError, setCameraError] = useState("");
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [accessCode, setAccessCode] = useState("");
+  const [savingCode, setSavingCode] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const refreshData = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
@@ -126,12 +127,6 @@ export default function LiveAttendancePage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    return () => {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-    };
-  }, []);
-
   const activeLecture = useMemo(
     () => lectures.find((lecture) => isLectureActive(lecture, now)) ?? null,
     [lectures, now]
@@ -155,51 +150,35 @@ export default function LiveAttendancePage() {
   const selectedStudent = students.find((student) => student.id === selectedStudentId);
   const presentStudentIds = useMemo(() => new Set(attendanceList.map((record) => record.student_id)), [attendanceList]);
 
-  async function verifyCameraCode() {
-    if (!cameraAccessCode.trim()) {
-      toast.error("Enter the camera access code first.");
+  async function saveAccessCode() {
+    if (accessCode.replace(/-/g, "").length < 8) {
+      toast.error("Generate an access code first.");
       return;
     }
-    setCameraLoading(true);
-    setCameraError("");
+    setSavingCode(true);
     try {
-      const base = ((import.meta as any).env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
-      const response = await fetch(`${base}/public/college/access-code/${encodeURIComponent(cameraAccessCode.trim())}/verify`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.detail || "Invalid camera access code.");
-      setCameraVerified(true);
-      toast.success(`${data.college_name} camera access verified.`);
+      await setCollegeAccessCode(accessCode);
+      toast.success("Desktop camera access code saved.");
     } catch (error: any) {
-      setCameraVerified(false);
-      setCameraError(error?.message || "Unable to verify camera access code.");
-      toast.error(error?.message || "Invalid camera access code.");
+      toast.error(error?.message || "Unable to save access code.");
     } finally {
-      setCameraLoading(false);
+      setSavingCode(false);
     }
   }
 
-  async function startCameraPreview() {
-    if (!cameraVerified) {
-      toast.error("Verify the camera access code first.");
+  async function copyAccessCode() {
+    if (!accessCode) {
+      toast.error("Generate an access code first.");
       return;
     }
-    setCameraError("");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-      streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      setCameraRunning(true);
-    } catch (error: any) {
-      setCameraRunning(false);
-      setCameraError(error?.message || "Camera permission was denied or the camera is unavailable.");
+      await navigator.clipboard.writeText(accessCode);
+      setCopied(true);
+      toast.success("Access code copied.");
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast.error("Unable to copy the access code.");
     }
-  }
-
-  function stopCameraPreview() {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setCameraRunning(false);
   }
 
   async function handleManualAttendance() {
@@ -223,7 +202,7 @@ export default function LiveAttendancePage() {
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <div className="flex items-center gap-2"><ScanFace className="text-blue-400" size={22} /><h1 className="text-2xl font-semibold text-white">Live Attendance</h1></div>
-          <p className="mt-1 text-sm text-[#94A3B8]">Desktop recognition is the attendance engine. The browser camera below is only a live preview.</p>
+          <p className="mt-1 text-sm text-[#94A3B8]">Monitor attendance from the FaceTrack Desktop recognition application.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-[#CBD5E1]"><Clock3 className="mr-2 inline" size={14} />{now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</div>
@@ -239,27 +218,27 @@ export default function LiveAttendancePage() {
       </div>
 
       <div className="mb-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <GlassCard className="overflow-hidden p-0">
-          <div className="border-b border-white/10 p-5"><div className="flex items-center justify-between gap-3"><div><h3 className="text-base font-semibold text-white">Camera Preview</h3><p className="mt-1 text-sm text-[#94A3B8]">Optional browser preview. Recognition continues in the desktop app.</p></div><span className={`rounded-full px-3 py-1.5 text-xs ${cameraRunning ? "bg-emerald-500/10 text-emerald-300" : "bg-white/5 text-[#94A3B8]"}`}>{cameraRunning ? "Camera active" : "Preview stopped"}</span></div></div>
-          <div className="relative aspect-video bg-[#050A0F]">
-            <video ref={videoRef} autoPlay muted playsInline className={`h-full w-full object-cover ${cameraRunning ? "" : "hidden"}`} />
-            {!cameraRunning && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center text-[#64748B]"><CameraOff size={42} /><p className="text-sm">Camera preview is off</p></div>}
-          </div>
-          <div className="p-5">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Input label="Camera access code" type="password" value={cameraAccessCode} onChange={(event) => { setCameraAccessCode(event.target.value); setCameraVerified(false); }} placeholder="Enter desktop camera code" />
-              <div className="flex items-end gap-2"><Button variant="secondary" onClick={() => void verifyCameraCode()} disabled={cameraLoading}>{cameraLoading ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}{cameraLoading ? "Checking…" : "Verify"}</Button>{cameraRunning ? <Button variant="secondary" onClick={stopCameraPreview}><CameraOff size={15} />Stop</Button> : <Button variant="primary" onClick={() => void startCameraPreview()} disabled={!cameraVerified}><Camera size={15} />Preview</Button>}</div>
+        <GlassCard className="p-6">
+          <div className="flex items-start gap-3"><div className="rounded-xl bg-blue-500/10 p-3 text-blue-300"><KeyRound size={21} /></div><div><h2 className="font-semibold text-white">Desktop Camera Access Code</h2><p className="mt-1 text-sm text-[#94A3B8]">Generate a secure code for the FaceTrack Desktop recognition application. The browser does not access the camera.</p></div></div>
+          <div className="mt-5 rounded-2xl border border-white/10 bg-[#0F172A] p-4">
+            <p className="mb-2 text-xs uppercase tracking-wider text-[#64748B]">Current access code</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Input value={accessCode} onChange={(event) => setAccessCode(event.target.value.toUpperCase())} placeholder="XXXX-XXXX-XXXX" aria-label="Desktop camera access code" />
+              <div className="flex shrink-0 gap-2">
+                <Button variant="secondary" onClick={() => { setAccessCode(generateAccessCode()); setCopied(false); }}><KeyRound size={15} />Generate</Button>
+                <Button variant="secondary" onClick={() => void copyAccessCode()} disabled={!accessCode}>{copied ? <Check size={15} /> : <Copy size={15} />}{copied ? "Copied" : "Copy"}</Button>
+                <Button variant="primary" onClick={() => void saveAccessCode()} disabled={savingCode}>{savingCode ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}{savingCode ? "Saving…" : "Save"}</Button>
+              </div>
             </div>
-            <div className="mt-3 flex items-center gap-2 text-xs"><span className={cameraVerified ? "text-emerald-400" : "text-[#64748B]"}>{cameraVerified ? <CheckCircle2 size={14} /> : <KeyRound size={14} />}</span><span className={cameraVerified ? "text-emerald-300" : "text-[#64748B]"}>{cameraVerified ? "Camera access code verified" : "Verify the code before requesting camera access"}</span></div>
-            {cameraError && <p className="mt-2 text-xs text-red-400">{cameraError}</p>}
           </div>
+          <p className="mt-3 text-xs text-[#64748B]">Keep the code private. Enter the saved code in FaceTrack Desktop when connecting the recognition application to this college.</p>
         </GlassCard>
 
         <GlassCard className="p-6">
           <div className="mb-5 flex items-start gap-3"><div className="rounded-xl bg-blue-500/10 p-2 text-blue-400"><ShieldCheck size={20} /></div><div><h3 className="font-semibold text-white">Recognition Status</h3><p className="mt-1 text-sm text-[#94A3B8]">Connection between the desktop app and backend.</p></div></div>
           <div className={`rounded-2xl border p-5 ${desktopOnline ? "border-emerald-500/20 bg-emerald-500/10" : "border-amber-500/20 bg-amber-500/10"}`}>
             <p className={`text-lg font-semibold ${desktopOnline ? "text-emerald-300" : "text-amber-300"}`}>{desktopOnline ? "Desktop app is online" : "Desktop app is offline"}</p>
-            <p className="mt-2 text-sm text-[#CBD5E1]">{desktopOnline ? "Recognition heartbeats are reaching the backend." : "Start FaceTrack Desktop with the correct camera access code."}</p>
+            <p className="mt-2 text-sm text-[#CBD5E1]">{desktopOnline ? "Recognition heartbeats are reaching the backend." : "Start FaceTrack Desktop and use the saved camera access code."}</p>
             <p className="mt-3 text-xs text-[#64748B]">Last heartbeat: {formatLastSeen(desktopLastSeen)}</p>
           </div>
           {activeLecture ? <div className="mt-5 rounded-2xl border border-white/10 bg-[#0F172A] p-4"><p className="text-xs uppercase tracking-wider text-[#64748B]">Current lecture</p><p className="mt-1 text-lg font-semibold text-white">{activeLecture.subject}</p><p className="mt-1 text-sm text-[#94A3B8]">{activeLecture.department} · {activeLecture.class_name} · Section {activeLecture.section}</p><p className="mt-2 text-xs text-[#64748B]">{formatTime(activeLecture.start_time)} – {formatTime(activeLecture.end_time)}</p></div> : <div className="mt-5 flex gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4"><CircleAlert className="shrink-0 text-amber-300" size={18} /><p className="text-sm text-amber-100/80">No active lecture. Attendance will be accepted when a scheduled lecture is active.</p></div>}
