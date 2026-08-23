@@ -10,7 +10,7 @@ interface ProfileCardProps {
   email: string;
   role?: string;
   status?: string;
-  onChangePassword: () => void;
+  onChangePassword?: () => void;
 }
 
 export default function ProfileCard({
@@ -49,15 +49,17 @@ export default function ProfileCard({
         </div>
       </div>
 
-      <div className="mt-6 border-t border-white/10 pt-6">
-        <Button
-          variant="primary"
-          onClick={onChangePassword}
-        >
-          <Shield size={16} />
-          Change Password
-        </Button>
-      </div>
+      {role !== "Teacher" && onChangePassword ? (
+        <div className="mt-6 border-t border-white/10 pt-6">
+          <Button
+            variant="primary"
+            onClick={onChangePassword}
+          >
+            <Shield size={16} />
+            Change Password
+          </Button>
+        </div>
+      ) : null}
     </GlassCard>
   );
 }
