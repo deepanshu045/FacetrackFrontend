@@ -10,9 +10,8 @@ function parseApiDateTime(value: unknown): Date | null {
   const raw = String(value).trim();
   if (!raw) return null;
 
-  // Backend may return an ISO timestamp with a timezone, or a naive
-  // SQL datetime. Treat a naive datetime as UTC so it is displayed in
-  // the browser's local timezone consistently with notifications.
+  // Full timestamps may contain a timezone. Naive datetimes are treated
+  // as UTC for backward compatibility with the API's timestamp fields.
   const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
   const withTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized)
     ? normalized
@@ -32,8 +31,25 @@ function formatAttendanceDate(value: unknown): string {
 }
 
 function formatAttendanceTime(value: unknown): string {
-  const parsed = parseApiDateTime(value);
-  if (!parsed) return String(value ?? "—");
+  if (!value) return "—";
+
+  const raw = String(value).trim();
+  const timeOnlyMatch = raw.match(/^(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/);
+
+  // attendance_time is a SQL TIME value. It represents a local wall-clock
+  // time, not an instant, so never pass it through Date/timezone conversion.
+  if (timeOnlyMatch) {
+    const hours = Number(timeOnlyMatch[1]);
+    const minutes = Number(timeOnlyMatch[2]);
+    if (hours <= 23 && minutes <= 59) {
+      const period = hours >= 12 ? "PM" : "AM";
+      const displayHour = hours % 12 || 12;
+      return `${String(displayHour).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${period}`;
+    }
+  }
+
+  const parsed = parseApiDateTime(raw);
+  if (!parsed) return raw.slice(0, 5);
   return parsed.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
