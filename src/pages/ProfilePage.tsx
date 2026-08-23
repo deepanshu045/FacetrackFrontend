@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { KeyRound, ShieldCheck, Trash2, UserPlus, Users, UserRound } from "lucide-react";
+import { BookOpen, KeyRound, ShieldCheck, Trash2, UserPlus, Users, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
 import PageWrap from "../components/layout/PageWrap";
@@ -15,12 +15,13 @@ import {
   deleteCollegeAdmin,
   fetchCollegeAdmins,
   fetchProfile,
+  fetchTeacherLectures,
   fetchTeacherMe,
   getStoredRole,
   registerAdmin,
 } from "../services/api";
 import type { CollegeAdmin } from "../services/api";
-import type { Teacher, UserProfile } from "../types";
+import type { Lecture, Teacher, UserProfile } from "../types";
 
 export default function ProfilePage() {
   const role = getStoredRole();
@@ -28,6 +29,7 @@ export default function ProfilePage() {
   const [pwModal, setPwModal] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [teacher, setTeacher] = useState<Teacher | null>(null);
+  const [teacherLectures, setTeacherLectures] = useState<Lecture[]>([]);
   const [password, setPassword] = useState({ current: "", next: "", confirm: "" });
   const [adminForm, setAdminForm] = useState({ name: "", username: "", email: "", password: "" });
   const [admins, setAdmins] = useState<CollegeAdmin[]>([]);
@@ -39,8 +41,9 @@ export default function ProfilePage() {
     setLoading(true);
     try {
       if (isTeacher) {
-        const teacherData = await fetchTeacherMe();
+        const [teacherData, lectures] = await Promise.all([fetchTeacherMe(), fetchTeacherLectures()]);
         setTeacher(teacherData);
+        setTeacherLectures(lectures);
         return;
       }
 
@@ -58,7 +61,7 @@ export default function ProfilePage() {
 
   async function handlePwChange() {
     if (isTeacher) {
-      toast.error("Teacher password management is not available here.");
+      toast.error("Teacher password management is handled by the college administrator.");
       return;
     }
     if (!password.current || !password.next || !password.confirm) return toast.error("Fill all fields");
@@ -96,19 +99,33 @@ export default function ProfilePage() {
 
   if (isTeacher) {
     const displayName = teacher?.name || teacher?.username || "Teacher";
+    const departments = [...new Set(teacherLectures.map((lecture) => lecture.department).filter(Boolean))];
+    const assignedClasses = [...new Map(
+      teacherLectures
+        .filter((lecture) => lecture.class_section_id != null)
+        .map((lecture) => [
+          lecture.class_section_id,
+          {
+            department: lecture.department || "Department not set",
+            className: lecture.class_name || "Class not set",
+            section: lecture.section || "—",
+          },
+        ])
+    ).values()];
+
     return (
       <PageWrap>
         <div className="mx-auto max-w-5xl space-y-6">
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950 to-slate-900 p-6">
+          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950 to-slate-900 p-6 shadow-xl shadow-black/10">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-blue-300">
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-blue-300">
                   <UserRound size={14} /> Account
                 </div>
                 <h1 className="text-2xl font-bold text-white">Teacher Profile</h1>
-                <p className="mt-1 text-sm text-slate-400">View your teacher account details.</p>
+                <p className="mt-1 text-sm text-slate-400">Your account, teaching details, and assigned classes.</p>
               </div>
-              <div className="flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-300">
+              <div className="flex w-fit items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-medium text-emerald-300">
                 <ShieldCheck size={14} /> Account active
               </div>
             </div>
@@ -121,10 +138,10 @@ export default function ProfilePage() {
               ) : (
                 <ProfileCard
                   name={displayName}
-                  email={teacher?.email || ""}
+                  email={teacher?.email || "Email not set"}
                   role="Teacher"
-                  status="Active"
-                  onChangePassword={() => toast.info("Teacher password management is handled by the college administrator.")}
+                  status={teacher?.is_active ? "Active" : "Inactive"}
+                  onChangePassword={() => toast.info("Teacher passwords are managed by the college administrator.")}
                 />
               )}
             </GlassCard>
@@ -134,15 +151,35 @@ export default function ProfilePage() {
                 <div className="rounded-xl bg-blue-500/15 p-3 text-blue-300"><KeyRound size={19} /></div>
                 <div>
                   <h2 className="font-semibold text-white">Account access</h2>
-                  <p className="text-xs text-slate-400">Your account is limited to assigned classes and lectures.</p>
+                  <p className="text-xs text-slate-400">Access is restricted to your assigned classes and lectures.</p>
                 </div>
               </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-sm font-medium text-white">Role</p>
-                <p className="mt-1 text-xs text-slate-400">Teacher</p>
-                <p className="mt-4 text-sm font-medium text-white">Username</p>
-                <p className="mt-1 text-xs text-slate-400">@{teacher?.username || "—"}</p>
+              <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-slate-500">Username</p>
+                  <p className="mt-1 font-medium text-white">@{teacher?.username || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-slate-500">Role</p>
+                  <p className="mt-1 font-medium text-white">Teacher</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-slate-500">Password</p>
+                  <p className="mt-1 text-sm text-slate-400">Managed by your college administrator</p>
+                </div>
               </div>
+            </GlassCard>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <GlassCard className="p-5">
+              <div className="flex items-center gap-3"><div className="rounded-xl bg-blue-500/15 p-3 text-blue-300"><BookOpen size={18} /></div><div><p className="text-xs text-slate-500">Assigned lectures</p><p className="mt-1 text-2xl font-bold text-white">{teacherLectures.length}</p></div></div>
+            </GlassCard>
+            <GlassCard className="p-5">
+              <div className="flex items-center gap-3"><div className="rounded-xl bg-violet-500/15 p-3 text-violet-300"><Users size={18} /></div><div><p className="text-xs text-slate-500">Assigned classes</p><p className="mt-1 text-2xl font-bold text-white">{assignedClasses.length}</p></div></div>
+            </GlassCard>
+            <GlassCard className="p-5">
+              <div className="flex items-center gap-3"><div className="rounded-xl bg-emerald-500/15 p-3 text-emerald-300"><ShieldCheck size={18} /></div><div><p className="text-xs text-slate-500">Departments</p><p className="mt-1 text-2xl font-bold text-white">{departments.length || "—"}</p></div></div>
             </GlassCard>
           </div>
 
@@ -151,7 +188,7 @@ export default function ProfilePage() {
               <div className="rounded-xl bg-slate-500/15 p-3 text-slate-200"><UserRound size={19} /></div>
               <div>
                 <h2 className="font-semibold text-white">Account details</h2>
-                <p className="text-xs text-slate-400">Your teacher account information.</p>
+                <p className="text-xs text-slate-400">Information stored for your teacher account.</p>
               </div>
             </div>
             <ProfileInfoGrid items={[
@@ -160,7 +197,32 @@ export default function ProfilePage() {
               { label: "Email", value: teacher?.email || "Not set" },
               { label: "Role", value: "Teacher" },
               { label: "College ID", value: String(teacher?.college_id ?? "—") },
+              { label: "Department", value: departments.length ? departments.join(", ") : "Not available from assigned lectures" },
             ]} />
+          </GlassCard>
+
+          <GlassCard className="p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="rounded-xl bg-blue-500/15 p-3 text-blue-300"><BookOpen size={19} /></div>
+              <div>
+                <h2 className="font-semibold text-white">Assigned classes</h2>
+                <p className="text-xs text-slate-400">Classes represented by your assigned lecture records.</p>
+              </div>
+            </div>
+            {loading ? (
+              <p className="text-sm text-slate-400">Loading assigned classes…</p>
+            ) : assignedClasses.length ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {assignedClasses.map((item) => (
+                  <div key={`${item.className}-${item.section}-${item.department}`} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                    <p className="font-medium text-white">{item.className} · Section {item.section}</p>
+                    <p className="mt-1 text-sm text-slate-400">{item.department}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">No assigned lecture records found yet.</p>
+            )}
           </GlassCard>
         </div>
       </PageWrap>
