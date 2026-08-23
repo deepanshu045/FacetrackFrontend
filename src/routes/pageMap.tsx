@@ -1,4 +1,5 @@
 import DashboardPage from "../pages/DashboardPage";
+import TeacherDashboardPage from "../pages/TeacherDashboardPage";
 import StudentsPage from "../pages/StudentsPage";
 import LiveAttendancePage from "../pages/LiveAttendancePage";
 import UploadPage from "../pages/UploadPage";
@@ -13,6 +14,7 @@ import type { ReactNode } from "react";
 
 export const pageMap: Record<Page, ReactNode> = {
   dashboard: <DashboardPage />,
+  "teacher-dashboard": <TeacherDashboardPage />,
   students: <StudentsPage />,
   "upload-face": <UploadPage />,
   "live-attendance": <LiveAttendancePage />,
