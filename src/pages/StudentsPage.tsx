@@ -14,7 +14,10 @@ import { fetchClassSections } from "../services/api";
 import type { Student, ClassSection } from "../types";
 
 export default function StudentPage() {
-  const { students, loading, error, addStudent, updateStudent, deleteStudent } = useStudents();
+  const [classSectionId, setClassSectionId] = useState<string>("");
+  const { students, loading, error, addStudent, updateStudent, deleteStudent } = useStudents(
+    classSectionId ? Number(classSectionId) : undefined,
+  );
   const [classSections, setClassSections] = useState<ClassSection[]>([]);
   const [search, setSearch] = useState("");
   const [dept, setDept] = useState("All");
@@ -171,9 +174,12 @@ export default function StudentPage() {
           setSearch={(value) => { setSearch(value); setPage(1); }}
           dept={dept}
           setDept={(value) => { setDept(value); setPage(1); }}
+          classSectionId={classSectionId}
+          setClassSectionId={(value) => { setClassSectionId(value); setPage(1); }}
           setPage={setPage}
           onAdd={openAdd}
           departments={departments}
+          classSections={classSections}
         />
 
         <StudentsTable
