@@ -45,7 +45,7 @@ export default function StudentsToolbar({
         onChange={(e) => { setClassSectionId(e.target.value); setPage(1); }}
         className="rounded-xl border border-white/10 bg-[#0F172A] px-4 py-2.5 text-sm text-white focus:outline-none"
       >
-        <option value="">All Classes / Sections</option>
+        <option value="">All Classes</option>
         {classSections.map((item) => (
           <option key={item.id} value={String(item.id)}>
             {item.department} · {item.class_name} - {item.section}

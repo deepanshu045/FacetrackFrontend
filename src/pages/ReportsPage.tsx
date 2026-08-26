@@ -326,7 +326,7 @@ export default function ReportsPage() {
             <p className="mt-1 text-sm text-[#64748B]">{filtered.length} lecture{filtered.length === 1 ? "" : "s"} in this view</p>
           </div>
           <div className="flex items-center gap-2">
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." />
+            {/* <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." /> */}
             <button onClick={exportCsv} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">Export CSV</button>
           </div>
         </div>

@@ -64,6 +64,7 @@ function formatAttendanceTime(value?: string) {
   return parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+
 function formatLastSeen(value?: string | null) {
   if (!value) return "Never";
   const parsed = new Date(value);
