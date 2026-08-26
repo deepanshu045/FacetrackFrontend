@@ -22,14 +22,6 @@ const currentMonthString = () => {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 };
 
-function formatDate(value: string) {
-  if (!value) return "—";
-  const date = new Date(`${value}T00:00:00`);
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
-
 export default function ReportsPage() {
   const { students } = useStudents();
   const [filter, setFilter] = useState<ReportFilter>("student");
@@ -51,14 +43,10 @@ export default function ReportsPage() {
   const [studentSummary, setStudentSummary] = useState<StudentAttendanceSummary | null>(null);
 
   useEffect(() => {
-    if (students.length > 0 && selectedStudentId === null) {
-      setSelectedStudentId(students[0].id);
-    }
+    if (students.length && selectedStudentId === null) setSelectedStudentId(students[0].id);
   }, [students, selectedStudentId]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [filter, selectedStudentId, selectedDate, selectedMonth, subject, status, fromDate, toDate, search]);
+  useEffect(() => setPage(1), [filter, selectedStudentId, selectedDate, selectedMonth, subject, status, fromDate, toDate, search]);
 
   useEffect(() => {
     async function loadRecords() {
@@ -71,13 +59,10 @@ export default function ReportsPage() {
       setError(null);
       try {
         let data: unknown[] = [];
-        if (filter === "student") {
-          data = await fetchAttendanceByStudent(selectedStudentId!);
-        } else if (filter === "today") {
-          data = await fetchTodayAttendance();
-        } else if (filter === "date") {
-          data = selectedDate ? await fetchAttendanceByDate(selectedDate) : [];
-        } else if (filter === "monthly") {
+        if (filter === "student") data = await fetchAttendanceByStudent(selectedStudentId!);
+        else if (filter === "today") data = await fetchTodayAttendance();
+        else if (filter === "date") data = selectedDate ? await fetchAttendanceByDate(selectedDate) : [];
+        else if (filter === "monthly") {
           const [year, month] = selectedMonth.split("-").map(Number);
           data = year && month ? await fetchMonthlyAttendance(year, month) : [];
         }
@@ -104,7 +89,6 @@ export default function ReportsPage() {
         setLoading(false);
       }
     }
-
     loadRecords();
   }, [filter, selectedStudentId, selectedDate, selectedMonth]);
 
@@ -113,7 +97,6 @@ export default function ReportsPage() {
       setStudentSummary(null);
       return;
     }
-
     async function loadSummary() {
       setSummaryLoading(true);
       try {
@@ -124,9 +107,20 @@ export default function ReportsPage() {
         setSummaryLoading(false);
       }
     }
-
     loadSummary();
   }, [selectedStudentId]);
+
+  const selectedStudent = students.find((student) => student.id === selectedStudentId);
+
+  // These filters define the reporting period. Status/search are intentionally excluded
+  // so changing "Present" to "Absent" does not change the attendance percentage.
+  const scopedRecords = useMemo(() => records.filter((record) => {
+    if (filter !== "student") return true;
+    if (subject !== "all" && (record.subject || "Unknown") !== subject) return false;
+    if (fromDate && record.attendance_date < fromDate) return false;
+    if (toDate && record.attendance_date > toDate) return false;
+    return true;
+  }), [records, filter, subject, fromDate, toDate]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -149,24 +143,30 @@ export default function ReportsPage() {
   }, [records, search, filter, subject, status, fromDate, toDate, sortKey, sortDir]);
 
   const paginated = filtered.slice((page - 1) * 8, page * 8);
-  const selectedStudent = students.find((student) => student.id === selectedStudentId);
   const subjects = useMemo(
     () => Array.from(new Set(records.map((record) => record.subject).filter(Boolean) as string[])).sort(),
     [records]
   );
 
+  const reportStats = useMemo(() => {
+    const present = scopedRecords.filter((record) => (record.status || "Present").toLowerCase() === "present").length;
+    const conducted = scopedRecords.length;
+    const absent = Math.max(conducted - present, 0);
+    return { present, absent, conducted, percentage: conducted ? Math.round((present / conducted) * 100) : 0 };
+  }, [scopedRecords]);
+
   const subjectBreakdown = useMemo(() => {
     const groups: Record<string, { present: number; total: number }> = {};
-    records.forEach((record) => {
+    scopedRecords.forEach((record) => {
       const name = record.subject || "Unknown subject";
       if (!groups[name]) groups[name] = { present: 0, total: 0 };
       groups[name].total += 1;
       if ((record.status || "Present").toLowerCase() === "present") groups[name].present += 1;
     });
     return Object.entries(groups)
-      .map(([name, value]) => ({ name, ...value, percentage: value.total ? Math.round((value.present / value.total) * 100) : 0 }))
+      .map(([name, value]) => ({ ...value, name, percentage: value.total ? Math.round((value.present / value.total) * 100) : 0 }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [records]);
+  }, [scopedRecords]);
 
   function toggleSort(key: keyof AttendanceReport) {
     if (sortKey === key) setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
@@ -176,6 +176,21 @@ export default function ReportsPage() {
     }
   }
 
+  function changeFromDate(value: string) {
+    setFromDate(value);
+    if (value && toDate && value > toDate) setToDate(value);
+  }
+
+  function changeToDate(value: string) {
+    setToDate(value);
+    if (value && fromDate && value < fromDate) setFromDate(value);
+  }
+
+  function clearDateRange() {
+    setFromDate("");
+    setToDate("");
+  }
+
   function exportCsv() {
     if (!filtered.length) {
       toast.error("No lectures available to export.");
@@ -183,15 +198,7 @@ export default function ReportsPage() {
     }
     const rows = [
       ["Student", "Roll Number", "Subject", "Date", "Start Time", "End Time", "Status"],
-      ...filtered.map((record) => [
-        record.name,
-        record.roll_no,
-        record.subject || "",
-        record.attendance_date,
-        record.start_time || record.attendance_time || "",
-        record.end_time || "",
-        record.status || "Present",
-      ]),
+      ...filtered.map((record) => [record.name, record.roll_no, record.subject || "", record.attendance_date, record.start_time || record.attendance_time || "", record.end_time || "", record.status || "Present"]),
     ];
     const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -207,7 +214,7 @@ export default function ReportsPage() {
     <PageWrap>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Attendance Reports</h1>
-        <p className="mt-1 text-sm text-[#94A3B8]">Analyze attendance at the lecture level. Every row represents one conducted lecture.</p>
+        <p className="mt-1 text-sm text-[#94A3B8]">Lecture-wise attendance. Each row represents one conducted lecture.</p>
       </div>
 
       <ReportsFilterTabs filter={filter} setFilter={setFilter} />
@@ -215,18 +222,12 @@ export default function ReportsPage() {
       {filter === "student" ? (
         <div className="mt-4 space-y-4">
           <GlassCard className="p-5">
-            <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1fr]">
+            <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr_1fr]">
               <div className="space-y-2">
                 <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">Student</label>
-                <select
-                  value={selectedStudentId ?? ""}
-                  onChange={(event) => setSelectedStudentId(Number(event.target.value) || null)}
-                  className="w-full rounded-xl border border-white/10 bg-[#0F172A] px-4 py-3 text-sm text-white outline-none focus:border-blue-500/50"
-                >
+                <select value={selectedStudentId ?? ""} onChange={(event) => setSelectedStudentId(Number(event.target.value) || null)} className="w-full rounded-xl border border-white/10 bg-[#0F172A] px-4 py-3 text-sm text-white outline-none focus:border-blue-500/50">
                   <option value="">Select a student</option>
-                  {students.map((student) => (
-                    <option key={student.id} value={student.id}>{student.name} · {student.roll_no}</option>
-                  ))}
+                  {students.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.roll_no}</option>)}
                 </select>
               </div>
               <div className="space-y-2">
@@ -244,18 +245,30 @@ export default function ReportsPage() {
                   <option value="Absent">Absent</option>
                 </select>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">From</label>
-                <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">Date range</p>
+                  <p className="mt-1 text-xs text-[#64748B]">Optional. Includes both start and end dates.</p>
+                </div>
+                {(fromDate || toDate) && <button type="button" onClick={clearDateRange} className="self-start text-xs font-medium text-blue-400 hover:text-blue-300 sm:self-auto">Clear dates</button>}
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">To</label>
-                <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-xs text-[#94A3B8]">Start date</label>
+                  <Input type="date" value={fromDate} max={toDate || undefined} onChange={(e) => changeFromDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs text-[#94A3B8]">End date</label>
+                  <Input type="date" value={toDate} min={fromDate || undefined} onChange={(e) => changeToDate(e.target.value)} />
+                </div>
               </div>
             </div>
           </GlassCard>
 
-          {selectedStudent ? (
+          {selectedStudent && (
             <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
               <GlassCard className="p-6">
                 <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
@@ -265,25 +278,27 @@ export default function ReportsPage() {
                     <p className="mt-1 text-sm text-[#94A3B8]">{selectedStudent.roll_no} · {selectedStudent.department}{selectedStudent.section ? ` · Section ${selectedStudent.section}` : ""}</p>
                   </div>
                   <div className="text-left sm:text-right">
-                    {summaryLoading ? <p className="text-sm text-[#94A3B8]">Loading summary...</p> : studentSummary ? (
+                    {summaryLoading && !fromDate && !toDate && subject === "all" ? <p className="text-sm text-[#94A3B8]">Loading summary...</p> : (
                       <>
-                        <p className={`text-4xl font-bold ${studentSummary.percentage >= 75 ? "text-emerald-400" : "text-red-400"}`}>{studentSummary.percentage}%</p>
-                        <p className="mt-1 text-sm text-[#94A3B8]">{studentSummary.present} / {studentSummary.total_lectures} conducted lectures</p>
+                        <p className={`text-4xl font-bold ${reportStats.percentage >= 75 ? "text-emerald-400" : "text-red-400"}`}>{reportStats.percentage}%</p>
+                        <p className="mt-1 text-sm text-[#94A3B8]">{reportStats.present} / {reportStats.conducted} conducted lectures</p>
                       </>
-                    ) : <p className="text-sm text-[#94A3B8]">Summary unavailable</p>}
+                    )}
                   </div>
                 </div>
                 <div className="mt-6 grid grid-cols-3 gap-3">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p className="text-xs text-[#64748B]">Present</p><p className="mt-1 text-xl font-semibold text-emerald-300">{studentSummary?.present ?? "—"}</p></div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p className="text-xs text-[#64748B]">Absent</p><p className="mt-1 text-xl font-semibold text-red-300">{studentSummary ? studentSummary.total_lectures - studentSummary.present : "—"}</p></div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p className="text-xs text-[#64748B]">Conducted</p><p className="mt-1 text-xl font-semibold text-white">{studentSummary?.total_lectures ?? "—"}</p></div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p className="text-xs text-[#64748B]">Present</p><p className="mt-1 text-xl font-semibold text-emerald-300">{reportStats.present}</p></div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p className="text-xs text-[#64748B]">Absent</p><p className="mt-1 text-xl font-semibold text-red-300">{reportStats.absent}</p></div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p className="text-xs text-[#64748B]">Conducted</p><p className="mt-1 text-xl font-semibold text-white">{reportStats.conducted}</p></div>
                 </div>
+                {(fromDate || toDate || subject !== "all") && <p className="mt-4 text-xs text-[#64748B]">Summary reflects the selected date range and subject.</p>}
               </GlassCard>
 
               <GlassCard className="p-6">
-                <div className="flex items-center justify-between"><div><p className="text-xs font-medium uppercase tracking-[0.18em] text-[#64748B]">Subject-wise</p><h3 className="mt-1 font-semibold text-white">Attendance by subject</h3></div></div>
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#64748B]">Subject-wise</p>
+                <h3 className="mt-1 font-semibold text-white">Attendance by subject</h3>
                 <div className="mt-5 space-y-4">
-                  {subjectBreakdown.length === 0 ? <p className="text-sm text-[#94A3B8]">No lecture data available.</p> : subjectBreakdown.map((item) => (
+                  {subjectBreakdown.length === 0 ? <p className="text-sm text-[#94A3B8]">No lecture data available for this range.</p> : subjectBreakdown.map((item) => (
                     <div key={item.name}>
                       <div className="mb-1 flex justify-between text-sm"><span className="text-[#CBD5E1]">{item.name}</span><span className="text-[#94A3B8]">{item.present}/{item.total} · {item.percentage}%</span></div>
                       <div className="h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full ${item.percentage >= 75 ? "bg-emerald-400" : "bg-red-400"}`} style={{ width: `${item.percentage}%` }} /></div>
@@ -292,7 +307,7 @@ export default function ReportsPage() {
                 </div>
               </GlassCard>
             </div>
-          ) : null}
+          )}
         </div>
       ) : (
         <GlassCard className="mt-4 p-5">
@@ -306,7 +321,10 @@ export default function ReportsPage() {
 
       <GlassCard className="mt-4 p-6">
         <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-          <div><h2 className="font-semibold text-white">{filter === "student" ? "Lecture history" : "Attendance records"}</h2><p className="mt-1 text-sm text-[#64748B]">{filtered.length} lecture{filtered.length === 1 ? "" : "s"} in this view</p></div>
+          <div>
+            <h2 className="font-semibold text-white">{filter === "student" ? "Lecture history" : "Attendance records"}</h2>
+            <p className="mt-1 text-sm text-[#64748B]">{filtered.length} lecture{filtered.length === 1 ? "" : "s"} in this view</p>
+          </div>
           <div className="flex items-center gap-2">
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." />
             <button onClick={exportCsv} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">Export CSV</button>
