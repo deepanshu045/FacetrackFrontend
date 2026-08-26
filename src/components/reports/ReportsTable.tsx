@@ -2,30 +2,19 @@ import { Dispatch, SetStateAction } from "react";
 
 import Pagination from "../ui/Pagination";
 import ReportTableRow from "./ReportTableRow";
-import { AttendanceRecord } from "../../types";
+import { AttendanceReport } from "../../types";
 
 interface ReportsTableProps {
-  records: AttendanceRecord[];
+  records: AttendanceReport[];
   page: number;
   setPage: Dispatch<SetStateAction<number>>;
   total: number;
   perPage: number;
-
-  sortKey: keyof AttendanceRecord;
+  sortKey: keyof AttendanceReport;
   sortDir: "asc" | "desc";
-  toggleSort: (key: keyof AttendanceRecord) => void;
+  toggleSort: (key: keyof AttendanceReport) => void;
+  lectureWise?: boolean;
 }
-
-const columns: {
-  key: keyof AttendanceRecord;
-  label: string;
-}[] = [
-  { key: "student_name", label: "Student Name" },
-  { key: "roll_no", label: "Roll Number" },
-  { key: "department", label: "Department" },
-  { key: "attendance_date", label: "Date" },
-  { key: "attendance_time", label: "Time" },
-];
 
 export default function ReportsTable({
   records,
@@ -36,7 +25,24 @@ export default function ReportsTable({
   sortKey,
   sortDir,
   toggleSort,
+  lectureWise = false,
 }: ReportsTableProps) {
+  const columns: { key: keyof AttendanceReport; label: string }[] = lectureWise
+    ? [
+        { key: "name", label: "Student" },
+        { key: "subject", label: "Subject" },
+        { key: "attendance_date", label: "Date" },
+        { key: "start_time", label: "Lecture Time" },
+        { key: "status", label: "Status" },
+      ]
+    : [
+        { key: "name", label: "Student" },
+        { key: "roll_no", label: "Roll Number" },
+        { key: "department", label: "Department" },
+        { key: "attendance_date", label: "Date" },
+        { key: "attendance_time", label: "Time" },
+      ];
+
   return (
     <>
       <div className="overflow-x-auto">
@@ -51,36 +57,27 @@ export default function ReportsTable({
                 >
                   <div className="flex items-center gap-1">
                     {column.label}
-
                     {sortKey === column.key && (
-                      <span className="text-blue-400">
-                        {sortDir === "asc" ? "↑" : "↓"}
-                      </span>
+                      <span className="text-blue-400">{sortDir === "asc" ? "↑" : "↓"}</span>
                     )}
                   </div>
                 </th>
               ))}
             </tr>
           </thead>
-
           <tbody className="divide-y divide-white/5">
             {records.length === 0 ? (
               <tr>
-                <td
-                  colSpan={5}
-                  className="py-10 text-center text-[#94A3B8]"
-                >
-                  No attendance records found.
+                <td colSpan={columns.length} className="py-12 text-center text-[#94A3B8]">
+                  {lectureWise ? "No lectures match the selected filters." : "No attendance records found."}
                 </td>
               </tr>
             ) : (
               records.map((record) => (
                 <ReportTableRow
-                  key={
-                    record.id ||
-                    `${record.student_name}-${record.roll_no}-${record.attendance_date}-${record.attendance_time}`
-                  }
+                  key={record.lecture_id || `${record.student_id}-${record.attendance_date}-${record.attendance_time}`}
                   record={record}
+                  lectureWise={lectureWise}
                 />
               ))
             )}
@@ -88,12 +85,7 @@ export default function ReportsTable({
         </table>
       </div>
 
-      <Pagination
-        page={page}
-        total={total}
-        perPage={perPage}
-        onPage={setPage}
-      />
+      <Pagination page={page} total={total} perPage={perPage} onPage={setPage} />
     </>
   );
 }
