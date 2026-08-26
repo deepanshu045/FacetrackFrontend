@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import type { Student } from "../types";
 import * as api from "../services/api";
 
-export default function useStudents() {
+export default function useStudents(classSectionId?: number | null) {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -11,14 +11,14 @@ export default function useStudents() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.fetchStudents();
+      const data = await api.fetchStudents(classSectionId ?? undefined);
       setStudents(data);
     } catch (err: any) {
       setError(err?.message || "Failed to load students");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [classSectionId]);
 
   useEffect(() => {
     fetchAll();
