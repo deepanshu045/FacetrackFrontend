@@ -1,14 +1,10 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import PageWrap from "../components/layout/PageWrap";
 import GlassCard from "../components/ui/GlassCard";
 import Input from "../components/ui/Input";
-
 import ReportsFilterTabs, { ReportFilter } from "../components/reports/ReportsFilterTabs";
-import ReportsStats from "../components/reports/ReportsStats";
-import ReportsCharts from "../components/reports/ReportsCharts";
-import ReportsToolbar from "../components/reports/ReportsToolbar";
 import ReportsTable from "../components/reports/ReportsTable";
 import useStudents from "../hooks/useStudents";
 import {
@@ -18,101 +14,99 @@ import {
   fetchAttendanceByStudent,
 } from "../services/api";
 import { fetchStudentAttendanceSummary } from "../services/studentReportApi";
+import { AttendanceReport, StudentAttendanceSummary } from "../types";
 
-import { AttendanceReport, AttendanceRecord, StudentAttendanceSummary } from "../types";
-
-const todayString = () => {
-  const today = new Date();
-  return today.toISOString().slice(0, 10);
-};
-
+const todayString = () => new Date().toISOString().slice(0, 10);
 const currentMonthString = () => {
   const today = new Date();
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 };
 
+function formatDate(value: string) {
+  if (!value) return "—";
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 export default function ReportsPage() {
   const { students } = useStudents();
-  const [filter, setFilter] = useState<ReportFilter>("today");
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<ReportFilter>("student");
+  const [records, setRecords] = useState<AttendanceReport[]>([]);
   const [page, setPage] = useState(1);
-  const [sortKey, setSortKey] = useState<keyof AttendanceRecord>("attendance_date");
+  const [sortKey, setSortKey] = useState<keyof AttendanceReport>("attendance_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedDate, setSelectedDate] = useState(todayString());
   const [selectedMonth, setSelectedMonth] = useState(currentMonthString());
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [subject, setSubject] = useState("all");
+  const [status, setStatus] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [studentSummary, setStudentSummary] = useState<StudentAttendanceSummary | null>(null);
-  const [percentageLoading, setPercentageLoading] = useState(false);
 
   useEffect(() => {
-    if (selectedStudentId === null && students.length > 0) {
+    if (students.length > 0 && selectedStudentId === null) {
       setSelectedStudentId(students[0].id);
     }
   }, [students, selectedStudentId]);
 
   useEffect(() => {
     setPage(1);
-  }, [filter, search]);
+  }, [filter, selectedStudentId, selectedDate, selectedMonth, subject, status, fromDate, toDate, search]);
 
   useEffect(() => {
     async function loadRecords() {
-      setError(null);
+      if (filter === "student" && selectedStudentId === null) {
+        setRecords([]);
+        return;
+      }
+
       setLoading(true);
-
+      setError(null);
       try {
-        let data: Array<Record<string, unknown>> = [];
-
-        if (filter === "today") {
+        let data: unknown[] = [];
+        if (filter === "student") {
+          data = await fetchAttendanceByStudent(selectedStudentId!);
+        } else if (filter === "today") {
           data = await fetchTodayAttendance();
         } else if (filter === "date") {
-          if (selectedDate) data = await fetchAttendanceByDate(selectedDate);
+          data = selectedDate ? await fetchAttendanceByDate(selectedDate) : [];
         } else if (filter === "monthly") {
           const [year, month] = selectedMonth.split("-").map(Number);
-          if (year && month) data = await fetchMonthlyAttendance(year, month);
-        } else if (filter === "student") {
-          if (selectedStudentId) data = await fetchAttendanceByStudent(selectedStudentId);
+          data = year && month ? await fetchMonthlyAttendance(year, month) : [];
         }
 
-        const normalized = Array.isArray(data)
-          ? data.map((record) => {
-              const student = (record as any).student || {};
-              return {
+        setRecords(
+          Array.isArray(data)
+            ? data.map((record: any) => ({
                 ...record,
-                id:
-                  (record as any).id ||
-                  (record as any).attendance_id ||
-                  (record as any).record_id ||
-                  0,
-                student_name:
-                  (record as any).student_name ||
-                  (record as any).name ||
-                  student.name ||
-                  "Unknown",
-                roll_no: (record as any).roll_no || student.roll_no || "",
-                department:
-                  (record as any).department || student.department || "Unknown",
-                attendance_date:
-                  (record as any).attendance_date || (record as any).date || "",
-                attendance_time:
-                  (record as any).attendance_time || (record as any).time || "",
-              } as AttendanceRecord;
-            })
-          : [];
-
-        setRecords(normalized as AttendanceRecord[]);
+                student_id: Number(record.student_id || 0),
+                name: record.name || record.student_name || "Unknown",
+                roll_no: record.roll_no || "",
+                department: record.department || "Unknown",
+                attendance_date: record.attendance_date || record.date || "",
+                attendance_time: record.attendance_time || record.time || record.start_time || "",
+                subject: record.subject || null,
+                status: record.status || "Present",
+              }))
+            : []
+        );
       } catch (err: any) {
-        setError(err?.message || "Unable to load attendance records.");
         setRecords([]);
+        setError(err?.message || "Unable to load attendance records.");
       } finally {
         setLoading(false);
       }
     }
 
     loadRecords();
-  }, [filter, selectedDate, selectedMonth, selectedStudentId]);
+  }, [filter, selectedStudentId, selectedDate, selectedMonth]);
 
   useEffect(() => {
     if (!selectedStudentId) {
@@ -120,295 +114,219 @@ export default function ReportsPage() {
       return;
     }
 
-    async function loadStudentSummary() {
-      setPercentageLoading(true);
+    async function loadSummary() {
+      setSummaryLoading(true);
       try {
-        const summary = await fetchStudentAttendanceSummary(selectedStudentId!);
-        setStudentSummary(summary);
+        setStudentSummary(await fetchStudentAttendanceSummary(selectedStudentId!));
       } catch {
         setStudentSummary(null);
       } finally {
-        setPercentageLoading(false);
+        setSummaryLoading(false);
       }
     }
 
-    loadStudentSummary();
+    loadSummary();
   }, [selectedStudentId]);
 
   const filtered = useMemo(() => {
-    const normalized = search.trim().toLowerCase();
+    const query = search.trim().toLowerCase();
     return records
       .filter((record) => {
-        if (!normalized) return true;
-        return (
-          record.student_name.toLowerCase().includes(normalized) ||
-          record.roll_no.toLowerCase().includes(normalized)
-        );
+        if (query && !record.name.toLowerCase().includes(query) && !record.roll_no.toLowerCase().includes(query)) return false;
+        if (filter === "student") {
+          if (subject !== "all" && (record.subject || "Unknown") !== subject) return false;
+          if (status !== "all" && (record.status || "Present") !== status) return false;
+          if (fromDate && record.attendance_date < fromDate) return false;
+          if (toDate && record.attendance_date > toDate) return false;
+        }
+        return true;
       })
       .sort((a, b) => {
-        const va = String(a[sortKey]);
-        const vb = String(b[sortKey]);
+        const va = String(a[sortKey] ?? "");
+        const vb = String(b[sortKey] ?? "");
         return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
       });
-  }, [records, search, sortKey, sortDir]);
+  }, [records, search, filter, subject, status, fromDate, toDate, sortKey, sortDir]);
 
-  const paginated = filtered.slice((page - 1) * 5, page * 5);
+  const paginated = filtered.slice((page - 1) * 8, page * 8);
+  const selectedStudent = students.find((student) => student.id === selectedStudentId);
+  const subjects = useMemo(
+    () => Array.from(new Set(records.map((record) => record.subject).filter(Boolean) as string[])).sort(),
+    [records]
+  );
 
-  function toggleSort(key: keyof AttendanceRecord) {
-    if (sortKey === key) {
-      setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
-    } else {
+  const subjectBreakdown = useMemo(() => {
+    const groups: Record<string, { present: number; total: number }> = {};
+    records.forEach((record) => {
+      const name = record.subject || "Unknown subject";
+      if (!groups[name]) groups[name] = { present: 0, total: 0 };
+      groups[name].total += 1;
+      if ((record.status || "Present").toLowerCase() === "present") groups[name].present += 1;
+    });
+    return Object.entries(groups)
+      .map(([name, value]) => ({ name, ...value, percentage: value.total ? Math.round((value.present / value.total) * 100) : 0 }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [records]);
+
+  function toggleSort(key: keyof AttendanceReport) {
+    if (sortKey === key) setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
+    else {
       setSortKey(key);
       setSortDir("asc");
     }
   }
 
-  const totalPresent = useMemo(
-    () => new Set(records.map((record) => record.student_id)).size,
-    [records]
-  );
-  const totalStudents = students.length;
-  const attendancePct = totalStudents
-    ? Math.round((totalPresent / totalStudents) * 100)
-    : 0;
-  const registered = students.filter((s: any) => Boolean(s.has_face || s.image_path)).length;
-  const recognitionAccuracy = totalStudents
-    ? `${Math.round((registered / totalStudents) * 100)}%`
-    : "—";
-
-  const selectedStudent = students.find((student) => student.id === selectedStudentId);
-
-  const studentAttendancePercentage = useMemo(() => {
-    if (!studentSummary) return null;
-
-    return {
-      percentage: studentSummary.percentage,
-      present: studentSummary.present,
-      total: studentSummary.total_lectures,
-    };
-  }, [studentSummary]);
-
-  const weeklyData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    records.forEach((record) => {
-      const key = record.attendance_date || "";
-      if (!key) return;
-      counts[key] = (counts[key] ?? 0) + 1;
-    });
-
-    const today = new Date();
-    const recentDays = Array.from({ length: 7 }, (_, index) => {
-      const date = new Date(today);
-      date.setDate(today.getDate() - (6 - index));
-      const dateKey = date.toISOString().slice(0, 10);
-      return {
-        day: date.toLocaleDateString("en-US", { weekday: "short" }),
-        dateKey,
-        attendance: counts[dateKey] ?? 0,
-      };
-    });
-
-    return recentDays.map(({ day, attendance }) => ({ day, attendance }));
-  }, [records]);
-
-  const departmentData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    records.forEach((record) => {
-      const department = record.department || "Unknown";
-      counts[department] = (counts[department] ?? 0) + 1;
-    });
-
-    const colors = ["#38bdf8", "#a78bfa", "#f59e0b", "#34d399", "#fb7185", "#f97316"];
-
-    return Object.entries(counts).map(([name, value], index) => ({
-      name,
-      value,
-      color: colors[index % colors.length],
-    }));
-  }, [records]);
-
   function exportCsv() {
-    if (!records.length) {
-      toast.error("No records available to export.");
+    if (!filtered.length) {
+      toast.error("No lectures available to export.");
       return;
     }
-
-    const headers = ["Name", "Roll Number", "Department", "Date", "Time"];
-    const rows = filtered.map((record) => [
-      record.student_name,
-      record.roll_no,
-      record.department,
-      record.attendance_date,
-      record.attendance_time,
-    ]);
-
-    const csvContent = [headers, ...rows]
-      .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const rows = [
+      ["Student", "Roll Number", "Subject", "Date", "Start Time", "End Time", "Status"],
+      ...filtered.map((record) => [
+        record.name,
+        record.roll_no,
+        record.subject || "",
+        record.attendance_date,
+        record.start_time || record.attendance_time || "",
+        record.end_time || "",
+        record.status || "Present",
+      ]),
+    ];
+    const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `attendance-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.href = url;
+    link.download = `attendance-report-${todayString()}.csv`;
     link.click();
-    URL.revokeObjectURL(link.href);
-  }
-
-  function exportPdf() {
-    if (!records.length) {
-      toast.error("No records available to export.");
-      return;
-    }
-    window.print();
-  }
-
-  function printReport() {
-    if (!records.length) {
-      toast.error("No records available to print.");
-      return;
-    }
-    window.print();
+    URL.revokeObjectURL(url);
   }
 
   return (
     <PageWrap>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white">Attendance Reports</h1>
+        <p className="mt-1 text-sm text-[#94A3B8]">Analyze attendance at the lecture level. Every row represents one conducted lecture.</p>
+      </div>
+
       <ReportsFilterTabs filter={filter} setFilter={setFilter} />
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_1.2fr]">
-        <ReportsStats
-          totalPresent={totalPresent}
-          totalStudents={totalStudents}
-          attendancePct={attendancePct}
-          recognitionAccuracy={recognitionAccuracy}
-        />
-
-        <GlassCard className="p-6">
-          <div className="space-y-4">
-            {filter === "date" && (
+      {filter === "student" ? (
+        <div className="mt-4 space-y-4">
+          <GlassCard className="p-5">
+            <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1fr]">
               <div className="space-y-2">
-                <p className="text-sm text-[#94A3B8]">Choose the date to view attendance for.</p>
-                <Input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(event) => setSelectedDate(event.target.value)}
-                />
-              </div>
-            )}
-
-            {filter === "monthly" && (
-              <div className="space-y-2">
-                <p className="text-sm text-[#94A3B8]">Choose the month to view attendance for.</p>
-                <Input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={(event) => setSelectedMonth(event.target.value)}
-                />
-              </div>
-            )}
-
-            {filter === "student" && (
-              <div className="space-y-2">
-                <p className="text-sm text-[#94A3B8]">Select a student to view their attendance history.</p>
+                <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">Student</label>
                 <select
                   value={selectedStudentId ?? ""}
                   onChange={(event) => setSelectedStudentId(Number(event.target.value) || null)}
-                  className="w-full rounded-xl border border-white/10 bg-[#0F172A] px-4 py-2 text-white focus:outline-none"
+                  className="w-full rounded-xl border border-white/10 bg-[#0F172A] px-4 py-3 text-sm text-white outline-none focus:border-blue-500/50"
                 >
                   <option value="">Select a student</option>
                   {students.map((student) => (
-                    <option key={student.id} value={student.id}>
-                      {student.name} · {student.roll_no}
-                    </option>
+                    <option key={student.id} value={student.id}>{student.name} · {student.roll_no}</option>
                   ))}
                 </select>
-
-                {selectedStudent ? (
-                  <div className="rounded-3xl border border-white/10 bg-[#0F172A] p-4">
-                    <p className="text-sm font-semibold text-white">{selectedStudent.name}</p>
-                    <p className="text-sm text-[#94A3B8]">
-                      {selectedStudent.roll_no} · {selectedStudent.department}
-                    </p>
-
-                    <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-[#64748B]">Attendance</p>
-                        {percentageLoading ? (
-                          <p className="mt-1 text-sm text-[#94A3B8]">Calculating...</p>
-                        ) : studentAttendancePercentage ? (
-                          <>
-                            <p
-                              className={`mt-1 text-2xl font-bold ${
-                                studentAttendancePercentage.percentage >= 75
-                                  ? "text-emerald-400"
-                                  : "text-red-400"
-                              }`}
-                            >
-                              {studentAttendancePercentage.present} / {studentAttendancePercentage.total} lectures
-                            </p>
-                            <p className="mt-1 text-sm text-[#94A3B8]">
-                              {studentAttendancePercentage.percentage}% attendance
-                            </p>
-                          </>
-                        ) : (
-                          <p className="mt-1 text-sm text-[#94A3B8]">No attendance summary available</p>
-                        )}
-                      </div>
-
-                      {studentAttendancePercentage && studentAttendancePercentage.total > 0 ? (
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                            studentAttendancePercentage.percentage >= 75
-                              ? "bg-emerald-500/15 text-emerald-300"
-                              : "bg-red-500/15 text-red-300"
-                          }`}
-                        >
-                          {studentAttendancePercentage.percentage >= 75 ? "Above 75%" : "Below 75%"}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
               </div>
-            )}
+              <div className="space-y-2">
+                <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">Subject</label>
+                <select value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full rounded-xl border border-white/10 bg-[#0F172A] px-4 py-3 text-sm text-white outline-none">
+                  <option value="all">All subjects</option>
+                  {subjects.map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">Status</label>
+                <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full rounded-xl border border-white/10 bg-[#0F172A] px-4 py-3 text-sm text-white outline-none">
+                  <option value="all">All statuses</option>
+                  <option value="Present">Present</option>
+                  <option value="Absent">Absent</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">From</label>
+                <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">To</label>
+                <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              </div>
+            </div>
+          </GlassCard>
+
+          {selectedStudent ? (
+            <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+              <GlassCard className="p-6">
+                <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#64748B]">Student attendance</p>
+                    <h2 className="mt-1 text-xl font-semibold text-white">{selectedStudent.name}</h2>
+                    <p className="mt-1 text-sm text-[#94A3B8]">{selectedStudent.roll_no} · {selectedStudent.department}{selectedStudent.section ? ` · Section ${selectedStudent.section}` : ""}</p>
+                  </div>
+                  <div className="text-left sm:text-right">
+                    {summaryLoading ? <p className="text-sm text-[#94A3B8]">Loading summary...</p> : studentSummary ? (
+                      <>
+                        <p className={`text-4xl font-bold ${studentSummary.percentage >= 75 ? "text-emerald-400" : "text-red-400"}`}>{studentSummary.percentage}%</p>
+                        <p className="mt-1 text-sm text-[#94A3B8]">{studentSummary.present} / {studentSummary.total_lectures} conducted lectures</p>
+                      </>
+                    ) : <p className="text-sm text-[#94A3B8]">Summary unavailable</p>}
+                  </div>
+                </div>
+                <div className="mt-6 grid grid-cols-3 gap-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p className="text-xs text-[#64748B]">Present</p><p className="mt-1 text-xl font-semibold text-emerald-300">{studentSummary?.present ?? "—"}</p></div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p className="text-xs text-[#64748B]">Absent</p><p className="mt-1 text-xl font-semibold text-red-300">{studentSummary ? studentSummary.total_lectures - studentSummary.present : "—"}</p></div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><p className="text-xs text-[#64748B]">Conducted</p><p className="mt-1 text-xl font-semibold text-white">{studentSummary?.total_lectures ?? "—"}</p></div>
+                </div>
+              </GlassCard>
+
+              <GlassCard className="p-6">
+                <div className="flex items-center justify-between"><div><p className="text-xs font-medium uppercase tracking-[0.18em] text-[#64748B]">Subject-wise</p><h3 className="mt-1 font-semibold text-white">Attendance by subject</h3></div></div>
+                <div className="mt-5 space-y-4">
+                  {subjectBreakdown.length === 0 ? <p className="text-sm text-[#94A3B8]">No lecture data available.</p> : subjectBreakdown.map((item) => (
+                    <div key={item.name}>
+                      <div className="mb-1 flex justify-between text-sm"><span className="text-[#CBD5E1]">{item.name}</span><span className="text-[#94A3B8]">{item.present}/{item.total} · {item.percentage}%</span></div>
+                      <div className="h-2 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full ${item.percentage >= 75 ? "bg-emerald-400" : "bg-red-400"}`} style={{ width: `${item.percentage}%` }} /></div>
+                    </div>
+                  ))}
+                </div>
+              </GlassCard>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <GlassCard className="mt-4 p-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            {filter === "date" && <div><label className="mb-2 block text-xs uppercase tracking-wide text-[#64748B]">Date</label><Input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} /></div>}
+            {filter === "monthly" && <div><label className="mb-2 block text-xs uppercase tracking-wide text-[#64748B]">Month</label><Input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} /></div>}
+            <div><label className="mb-2 block text-xs uppercase tracking-wide text-[#64748B]">Search student</label><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name or roll number" /></div>
           </div>
         </GlassCard>
-      </div>
+      )}
 
-      <ReportsCharts weeklyData={weeklyData} departmentData={departmentData} />
-
-      <GlassCard className="p-6">
-        <ReportsToolbar
-          search={search}
-          setSearch={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
-          setPage={setPage}
-          onExportCsv={exportCsv}
-          onExportPdf={exportPdf}
-          onPrint={printReport}
-        />
-
-        {error ? (
-          <div className="rounded-3xl border border-red-600/20 bg-red-600/10 p-4 text-sm text-red-200">{error}</div>
-        ) : null}
-
-        {loading ? (
-          <div className="rounded-3xl border border-white/10 bg-[#0F172A] p-8 text-center text-sm text-[#94A3B8]">
-            Loading attendance records...
+      <GlassCard className="mt-4 p-6">
+        <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div><h2 className="font-semibold text-white">{filter === "student" ? "Lecture history" : "Attendance records"}</h2><p className="mt-1 text-sm text-[#64748B]">{filtered.length} lecture{filtered.length === 1 ? "" : "s"} in this view</p></div>
+          <div className="flex items-center gap-2">
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." />
+            <button onClick={exportCsv} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">Export CSV</button>
           </div>
-        ) : null}
+        </div>
 
-        <ReportsTable
-          records={paginated}
-          page={page}
-          setPage={setPage}
-          total={filtered.length}
-          perPage={5}
-          sortKey={sortKey}
-          sortDir={sortDir}
-          toggleSort={toggleSort}
-        />
+        {error ? <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">{error}</div> : null}
+        {loading ? <div className="rounded-2xl border border-white/10 bg-[#0F172A] p-10 text-center text-sm text-[#94A3B8]">Loading lecture attendance...</div> : (
+          <ReportsTable
+            records={paginated}
+            page={page}
+            setPage={setPage}
+            total={filtered.length}
+            perPage={8}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            toggleSort={toggleSort}
+            lectureWise={filter === "student"}
+          />
+        )}
       </GlassCard>
     </PageWrap>
   );
