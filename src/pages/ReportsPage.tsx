@@ -5,9 +5,7 @@ import PageWrap from "../components/layout/PageWrap";
 import GlassCard from "../components/ui/GlassCard";
 import Input from "../components/ui/Input";
 
-import ReportsFilterTabs, {
-  ReportFilter,
-} from "../components/reports/ReportsFilterTabs";
+import ReportsFilterTabs, { ReportFilter } from "../components/reports/ReportsFilterTabs";
 import ReportsStats from "../components/reports/ReportsStats";
 import ReportsCharts from "../components/reports/ReportsCharts";
 import ReportsToolbar from "../components/reports/ReportsToolbar";
@@ -21,7 +19,7 @@ import {
   fetchLectures,
 } from "../services/api";
 
-import { AttendanceReport, AttendanceRecord, DepartmentData, Lecture, WeeklyAttendance } from "../types";
+import { AttendanceReport, AttendanceRecord, Lecture } from "../types";
 
 const todayString = () => {
   const today = new Date();
@@ -30,10 +28,7 @@ const todayString = () => {
 
 const currentMonthString = () => {
   const today = new Date();
-  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}`;
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 };
 
 export default function ReportsPage() {
@@ -42,9 +37,7 @@ export default function ReportsPage() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [sortKey, setSortKey] = useState<keyof AttendanceRecord>(
-    "attendance_date"
-  );
+  const [sortKey, setSortKey] = useState<keyof AttendanceRecord>("attendance_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedDate, setSelectedDate] = useState(todayString());
   const [selectedMonth, setSelectedMonth] = useState(currentMonthString());
@@ -76,18 +69,12 @@ export default function ReportsPage() {
         if (filter === "today") {
           data = await fetchTodayAttendance();
         } else if (filter === "date") {
-          if (selectedDate) {
-            data = await fetchAttendanceByDate(selectedDate);
-          }
+          if (selectedDate) data = await fetchAttendanceByDate(selectedDate);
         } else if (filter === "monthly") {
           const [year, month] = selectedMonth.split("-").map(Number);
-          if (year && month) {
-            data = await fetchMonthlyAttendance(year, month);
-          }
+          if (year && month) data = await fetchMonthlyAttendance(year, month);
         } else if (filter === "student") {
-          if (selectedStudentId) {
-            data = await fetchAttendanceByStudent(selectedStudentId);
-          }
+          if (selectedStudentId) data = await fetchAttendanceByStudent(selectedStudentId);
         }
 
         const normalized = Array.isArray(data)
@@ -105,22 +92,13 @@ export default function ReportsPage() {
                   (record as any).name ||
                   student.name ||
                   "Unknown",
-                roll_no:
-                  (record as any).roll_no ||
-                  student.roll_no ||
-                  "",
+                roll_no: (record as any).roll_no || student.roll_no || "",
                 department:
-                  (record as any).department ||
-                  student.department ||
-                  "Unknown",
+                  (record as any).department || student.department || "Unknown",
                 attendance_date:
-                  (record as any).attendance_date ||
-                  (record as any).date ||
-                  "",
+                  (record as any).attendance_date || (record as any).date || "",
                 attendance_time:
-                  (record as any).attendance_time ||
-                  (record as any).time ||
-                  "",
+                  (record as any).attendance_time || (record as any).time || "",
               } as AttendanceRecord;
             })
           : [];
@@ -140,6 +118,7 @@ export default function ReportsPage() {
   useEffect(() => {
     if (!selectedStudentId) {
       setStudentAttendance([]);
+      setLectures([]);
       return;
     }
 
@@ -168,7 +147,6 @@ export default function ReportsPage() {
     return records
       .filter((record) => {
         if (!normalized) return true;
-
         return (
           record.student_name.toLowerCase().includes(normalized) ||
           record.roll_no.toLowerCase().includes(normalized)
@@ -177,10 +155,7 @@ export default function ReportsPage() {
       .sort((a, b) => {
         const va = String(a[sortKey]);
         const vb = String(b[sortKey]);
-
-        return sortDir === "asc"
-          ? va.localeCompare(vb)
-          : vb.localeCompare(va);
+        return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
       });
   }, [records, search, sortKey, sortDir]);
 
@@ -204,35 +179,40 @@ export default function ReportsPage() {
     ? Math.round((totalPresent / totalStudents) * 100)
     : 0;
   const registered = students.filter((s: any) => Boolean(s.has_face || s.image_path)).length;
-  const recognitionAccuracy = totalStudents ? `${Math.round((registered / totalStudents) * 100)}%` : "—";
- 
-  const selectedStudent = students.find(
-    (student) => student.id === selectedStudentId
-  );
+  const recognitionAccuracy = totalStudents
+    ? `${Math.round((registered / totalStudents) * 100)}%`
+    : "—";
+
+  const selectedStudent = students.find((student) => student.id === selectedStudentId);
 
   const studentAttendancePercentage = useMemo(() => {
-    if (!selectedStudent || !studentAttendance.length) return null;
+    if (!selectedStudent) return null;
 
+    const today = todayString();
     const studentLectures = lectures.filter(
       (lecture) =>
         lecture.status !== "Cancelled" &&
-        lecture.class_section_id === selectedStudent.class_section_id
+        lecture.class_section_id === selectedStudent.class_section_id &&
+        String(lecture.lecture_date).slice(0, 10) <= today
     );
 
-    if (!studentLectures.length) return null;
+    const presentRecords = studentAttendance.filter((record) => {
+      const date = String((record as any).attendance_date || "").slice(0, 10);
+      return !date || date <= today;
+    });
 
-    const percentage = Math.min(
-      100,
-      Math.round((studentAttendance.length / studentLectures.length) * 100)
-    );
+    const total = studentLectures.length;
+    const present = Math.min(presentRecords.length, total);
+
+    if (!total) return { percentage: 0, present: 0, total: 0 };
 
     return {
-      percentage,
-      present: Math.min(studentAttendance.length, studentLectures.length),
-      total: studentLectures.length,
+      percentage: Math.round((present / total) * 100),
+      present,
+      total,
     };
   }, [selectedStudent, studentAttendance, lectures]);
- 
+
   const weeklyData = useMemo(() => {
     const counts: Record<string, number> = {};
     records.forEach((record) => {
@@ -240,7 +220,7 @@ export default function ReportsPage() {
       if (!key) return;
       counts[key] = (counts[key] ?? 0) + 1;
     });
- 
+
     const today = new Date();
     const recentDays = Array.from({ length: 7 }, (_, index) => {
       const date = new Date(today);
@@ -252,47 +232,33 @@ export default function ReportsPage() {
         attendance: counts[dateKey] ?? 0,
       };
     });
- 
+
     return recentDays.map(({ day, attendance }) => ({ day, attendance }));
   }, [records]);
- 
+
   const departmentData = useMemo(() => {
     const counts: Record<string, number> = {};
     records.forEach((record) => {
       const department = record.department || "Unknown";
       counts[department] = (counts[department] ?? 0) + 1;
     });
- 
-    const colors = [
-      "#38bdf8",
-      "#a78bfa",
-      "#f59e0b",
-      "#34d399",
-      "#fb7185",
-      "#f97316",
-    ];
- 
+
+    const colors = ["#38bdf8", "#a78bfa", "#f59e0b", "#34d399", "#fb7185", "#f97316"];
+
     return Object.entries(counts).map(([name, value], index) => ({
       name,
       value,
       color: colors[index % colors.length],
     }));
   }, [records]);
- 
+
   function exportCsv() {
     if (!records.length) {
       toast.error("No records available to export.");
       return;
     }
- 
-    const headers = [
-      "Name",
-      "Roll Number",
-      "Department",
-      "Date",
-      "Time",
-    ];
- 
+
+    const headers = ["Name", "Roll Number", "Department", "Date", "Time"];
     const rows = filtered.map((record) => [
       record.student_name,
       record.roll_no,
@@ -300,11 +266,11 @@ export default function ReportsPage() {
       record.attendance_date,
       record.attendance_time,
     ]);
- 
+
     const csvContent = [headers, ...rows]
       .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","))
       .join("\n");
- 
+
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -312,22 +278,20 @@ export default function ReportsPage() {
     link.click();
     URL.revokeObjectURL(link.href);
   }
- 
+
   function exportPdf() {
     if (!records.length) {
       toast.error("No records available to export.");
       return;
     }
- 
     window.print();
   }
- 
+
   function printReport() {
     if (!records.length) {
       toast.error("No records available to print.");
       return;
     }
- 
     window.print();
   }
 
@@ -347,9 +311,7 @@ export default function ReportsPage() {
           <div className="space-y-4">
             {filter === "date" && (
               <div className="space-y-2">
-                <p className="text-sm text-[#94A3B8]">
-                  Choose the date to view attendance for.
-                </p>
+                <p className="text-sm text-[#94A3B8]">Choose the date to view attendance for.</p>
                 <Input
                   type="date"
                   value={selectedDate}
@@ -360,9 +322,7 @@ export default function ReportsPage() {
 
             {filter === "monthly" && (
               <div className="space-y-2">
-                <p className="text-sm text-[#94A3B8]">
-                  Choose the month to view attendance for.
-                </p>
+                <p className="text-sm text-[#94A3B8]">Choose the month to view attendance for.</p>
                 <Input
                   type="month"
                   value={selectedMonth}
@@ -373,16 +333,10 @@ export default function ReportsPage() {
 
             {filter === "student" && (
               <div className="space-y-2">
-                <p className="text-sm text-[#94A3B8]">
-                  Select a student to view their attendance history.
-                </p>
+                <p className="text-sm text-[#94A3B8]">Select a student to view their attendance history.</p>
                 <select
                   value={selectedStudentId ?? ""}
-                  onChange={(event) =>
-                    setSelectedStudentId(
-                      Number(event.target.value) || null
-                    )
-                  }
+                  onChange={(event) => setSelectedStudentId(Number(event.target.value) || null)}
                   className="w-full rounded-xl border border-white/10 bg-[#0F172A] px-4 py-2 text-white focus:outline-none"
                 >
                   <option value="">Select a student</option>
@@ -392,48 +346,48 @@ export default function ReportsPage() {
                     </option>
                   ))}
                 </select>
+
                 {selectedStudent ? (
                   <div className="rounded-3xl border border-white/10 bg-[#0F172A] p-4">
-                    <p className="text-sm font-semibold text-white">
-                      {selectedStudent.name}
-                    </p>
+                    <p className="text-sm font-semibold text-white">{selectedStudent.name}</p>
                     <p className="text-sm text-[#94A3B8]">
                       {selectedStudent.roll_no} · {selectedStudent.department}
                     </p>
+
                     <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
                       <div>
-                        <p className="text-xs uppercase tracking-wide text-[#64748B]">
-                          Attendance
-                        </p>
+                        <p className="text-xs uppercase tracking-wide text-[#64748B]">Attendance</p>
                         {percentageLoading ? (
                           <p className="mt-1 text-sm text-[#94A3B8]">Calculating...</p>
                         ) : studentAttendancePercentage ? (
-                          <p
-                            className={`mt-1 text-2xl font-bold ${
-                              studentAttendancePercentage.percentage > 75
-                                ? "text-emerald-400"
-                                : "text-red-400"
-                            }`}
-                          >
-                            {studentAttendancePercentage.percentage}%
-                          </p>
+                          <>
+                            <p
+                              className={`mt-1 text-2xl font-bold ${
+                                studentAttendancePercentage.percentage >= 75
+                                  ? "text-emerald-400"
+                                  : "text-red-400"
+                              }`}
+                            >
+                              {studentAttendancePercentage.present} / {studentAttendancePercentage.total} lectures
+                            </p>
+                            <p className="mt-1 text-sm text-[#94A3B8]">
+                              {studentAttendancePercentage.percentage}% attendance
+                            </p>
+                          </>
                         ) : (
-                          <p className="mt-1 text-sm text-[#94A3B8]">
-                            No lecture data available
-                          </p>
+                          <p className="mt-1 text-sm text-[#94A3B8]">No lecture data available</p>
                         )}
                       </div>
-                      {studentAttendancePercentage ? (
+
+                      {studentAttendancePercentage && studentAttendancePercentage.total > 0 ? (
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                            studentAttendancePercentage.percentage > 75
+                            studentAttendancePercentage.percentage >= 75
                               ? "bg-emerald-500/15 text-emerald-300"
                               : "bg-red-500/15 text-red-300"
                           }`}
                         >
-                          {studentAttendancePercentage.percentage > 75
-                            ? "Above 75%"
-                            : "Below 75%"}
+                          {studentAttendancePercentage.percentage >= 75 ? "Above 75%" : "Below 75%"}
                         </span>
                       ) : null}
                     </div>
@@ -461,9 +415,7 @@ export default function ReportsPage() {
         />
 
         {error ? (
-          <div className="rounded-3xl border border-red-600/20 bg-red-600/10 p-4 text-sm text-red-200">
-            {error}
-          </div>
+          <div className="rounded-3xl border border-red-600/20 bg-red-600/10 p-4 text-sm text-red-200">{error}</div>
         ) : null}
 
         {loading ? (
