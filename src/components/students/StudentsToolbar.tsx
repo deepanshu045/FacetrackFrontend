@@ -12,32 +12,22 @@ interface ClassSectionOption {
 interface StudentsToolbarProps {
   search: string;
   setSearch: (value: string) => void;
-  dept: string;
-  setDept: (value: string) => void;
   classSectionId: string;
   setClassSectionId: (value: string) => void;
   setPage: (page: number) => void;
   onAdd: () => void;
-  departments: string[];
   classSections: ClassSectionOption[];
 }
 
 export default function StudentsToolbar({
   search,
   setSearch,
-  dept,
-  setDept,
   classSectionId,
   setClassSectionId,
   setPage,
   onAdd,
-  departments,
   classSections,
 }: StudentsToolbarProps) {
-  const visibleClassSections = dept === "All"
-    ? classSections
-    : classSections.filter((item) => item.department === dept);
-
   return (
     <div className="mb-6 flex flex-wrap gap-3">
       <div className="relative min-w-48 flex-1">
@@ -51,28 +41,14 @@ export default function StudentsToolbar({
       </div>
 
       <select
-        value={dept}
-        onChange={(e) => {
-          setDept(e.target.value);
-          setClassSectionId("");
-          setPage(1);
-        }}
-        className="rounded-xl border border-white/10 bg-[#0F172A] px-4 py-2.5 text-sm text-white focus:outline-none"
-      >
-        {departments.map((department) => (
-          <option key={department} value={department}>{department}</option>
-        ))}
-      </select>
-
-      <select
         value={classSectionId}
         onChange={(e) => { setClassSectionId(e.target.value); setPage(1); }}
         className="rounded-xl border border-white/10 bg-[#0F172A] px-4 py-2.5 text-sm text-white focus:outline-none"
       >
         <option value="">All Classes / Sections</option>
-        {visibleClassSections.map((item) => (
+        {classSections.map((item) => (
           <option key={item.id} value={String(item.id)}>
-            {item.class_name} - {item.section}
+            {item.department} · {item.class_name} - {item.section}
           </option>
         ))}
       </select>
