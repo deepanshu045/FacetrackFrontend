@@ -16,10 +16,10 @@ import {
   fetchAttendanceByDate,
   fetchMonthlyAttendance,
   fetchAttendanceByStudent,
-  fetchLectures,
 } from "../services/api";
+import { fetchStudentAttendanceSummary } from "../services/studentReportApi";
 
-import { AttendanceReport, AttendanceRecord, Lecture } from "../types";
+import { AttendanceReport, AttendanceRecord, StudentAttendanceSummary } from "../types";
 
 const todayString = () => {
   const today = new Date();
@@ -44,8 +44,7 @@ export default function ReportsPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [studentAttendance, setStudentAttendance] = useState<AttendanceReport[]>([]);
-  const [lectures, setLectures] = useState<Lecture[]>([]);
+  const [studentSummary, setStudentSummary] = useState<StudentAttendanceSummary | null>(null);
   const [percentageLoading, setPercentageLoading] = useState(false);
 
   useEffect(() => {
@@ -117,29 +116,23 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!selectedStudentId) {
-      setStudentAttendance([]);
-      setLectures([]);
+      setStudentSummary(null);
       return;
     }
 
-    async function loadStudentPercentageData() {
+    async function loadStudentSummary() {
       setPercentageLoading(true);
       try {
-        const [attendanceData, lectureData] = await Promise.all([
-          fetchAttendanceByStudent(selectedStudentId!),
-          fetchLectures(),
-        ]);
-        setStudentAttendance(attendanceData);
-        setLectures(lectureData);
+        const summary = await fetchStudentAttendanceSummary(selectedStudentId!);
+        setStudentSummary(summary);
       } catch {
-        setStudentAttendance([]);
-        setLectures([]);
+        setStudentSummary(null);
       } finally {
         setPercentageLoading(false);
       }
     }
 
-    loadStudentPercentageData();
+    loadStudentSummary();
   }, [selectedStudentId]);
 
   const filtered = useMemo(() => {
@@ -186,32 +179,14 @@ export default function ReportsPage() {
   const selectedStudent = students.find((student) => student.id === selectedStudentId);
 
   const studentAttendancePercentage = useMemo(() => {
-    if (!selectedStudent) return null;
-
-    const today = todayString();
-    const studentLectures = lectures.filter(
-      (lecture) =>
-        lecture.status !== "Cancelled" &&
-        lecture.class_section_id === selectedStudent.class_section_id &&
-        String(lecture.lecture_date).slice(0, 10) <= today
-    );
-
-    const presentRecords = studentAttendance.filter((record) => {
-      const date = String((record as any).attendance_date || "").slice(0, 10);
-      return !date || date <= today;
-    });
-
-    const total = studentLectures.length;
-    const present = Math.min(presentRecords.length, total);
-
-    if (!total) return { percentage: 0, present: 0, total: 0 };
+    if (!studentSummary) return null;
 
     return {
-      percentage: Math.round((present / total) * 100),
-      present,
-      total,
+      percentage: studentSummary.percentage,
+      present: studentSummary.present,
+      total: studentSummary.total_lectures,
     };
-  }, [selectedStudent, studentAttendance, lectures]);
+  }, [studentSummary]);
 
   const weeklyData = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -375,7 +350,7 @@ export default function ReportsPage() {
                             </p>
                           </>
                         ) : (
-                          <p className="mt-1 text-sm text-[#94A3B8]">No lecture data available</p>
+                          <p className="mt-1 text-sm text-[#94A3B8]">No attendance summary available</p>
                         )}
                       </div>
 
