@@ -20,7 +20,6 @@ export default function StudentPage() {
   );
   const [classSections, setClassSections] = useState<ClassSection[]>([]);
   const [search, setSearch] = useState("");
-  const [dept, setDept] = useState("All");
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [viewStudent, setViewStudent] = useState<Student | null>(null);
@@ -41,23 +40,23 @@ export default function StudentPage() {
       .catch((err: any) => toast.error(err?.message || "Unable to load class sections"));
   }, []);
 
-  const departments = useMemo(
-    () => ["All", ...Array.from(new Set(classSections.map((item) => item.department))).sort()],
-    [classSections],
-  );
-
   const filteredStudents = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     return students.filter((student) => {
-      const matchesDepartment = dept === "All" || student.department === dept;
-      const matchesQuery = !normalizedSearch ||
-        [student.name, student.roll_no, student.email ?? "", student.phone_no ?? "", student.class_name ?? "", student.section ?? ""]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedSearch);
-      return matchesDepartment && matchesQuery;
+      if (!normalizedSearch) return true;
+      return [
+        student.name,
+        student.roll_no,
+        student.email ?? "",
+        student.phone_no ?? "",
+        student.class_name ?? "",
+        student.section ?? "",
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedSearch);
     });
-  }, [dept, search, students]);
+  }, [search, students]);
 
   const PER_PAGE = 8;
   const paginatedStudents = filteredStudents.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -172,13 +171,10 @@ export default function StudentPage() {
         <StudentsToolbar
           search={search}
           setSearch={(value) => { setSearch(value); setPage(1); }}
-          dept={dept}
-          setDept={(value) => { setDept(value); setPage(1); }}
           classSectionId={classSectionId}
           setClassSectionId={(value) => { setClassSectionId(value); setPage(1); }}
           setPage={setPage}
           onAdd={openAdd}
-          departments={departments}
           classSections={classSections}
         />
 
