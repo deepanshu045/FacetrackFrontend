@@ -238,7 +238,7 @@ export default function ReportsPage() {
               <div className="relative space-y-2">
                 <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">Student</label>
                 <Input
-                  value={selectedStudent ? `${selectedStudent.name} · ${selectedStudent.roll_no}` : studentSearch}
+                  value={studentSearch}
                   onChange={(event) => {
                     setStudentSearch(event.target.value);
                     setSelectedStudentId(null);
@@ -248,8 +248,8 @@ export default function ReportsPage() {
                     setStudentSearch("");
                     setStudentPickerOpen(true);
                   }}
-                  onBlur={() => setTimeout(() => setStudentPickerOpen(false), 150)}
-                  placeholder="Search by student name or roll number"
+                  onBlur={() => setTimeout(() => setStudentPickerOpen(false), 200)}
+                  placeholder={selectedStudent ? `${selectedStudent.name} · ${selectedStudent.roll_no}` : "Search by student name or roll number"}
                 />
                 {studentPickerOpen && (
                   <div className="absolute left-0 right-0 top-[4.75rem] z-30 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-[#0F172A] shadow-2xl">
@@ -263,7 +263,7 @@ export default function ReportsPage() {
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={() => {
                             setSelectedStudentId(student.id);
-                            setStudentSearch("");
+                            setStudentSearch(`${student.name} · ${student.roll_no}`);
                             setStudentPickerOpen(false);
                           }}
                           className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-white hover:bg-white/5"
