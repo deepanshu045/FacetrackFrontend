@@ -257,6 +257,7 @@ export default function ReportsPage() {
               <div className="space-y-2">
                 <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">Student</label>
                 <div className="relative">
+                  <Input
                     value={studentSearch}
                     onChange={(event) => {
                       setStudentSearch(event.target.value);
