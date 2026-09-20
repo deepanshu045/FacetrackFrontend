@@ -32,6 +32,8 @@ export default function ReportsPage() {
   const [selectedDate, setSelectedDate] = useState(todayString());
   const [selectedMonth, setSelectedMonth] = useState(currentMonthString());
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentPickerOpen, setStudentPickerOpen] = useState(false);
   const [subject, setSubject] = useState("all");
   const [status, setStatus] = useState("all");
   const [fromDate, setFromDate] = useState("");
@@ -111,6 +113,16 @@ export default function ReportsPage() {
   }, [selectedStudentId]);
 
   const selectedStudent = students.find((student) => student.id === selectedStudentId);
+  const studentOptions = useMemo(() => {
+    const query = studentSearch.trim().toLowerCase();
+    const matches = query
+      ? students.filter((student) =>
+          student.name.toLowerCase().includes(query) ||
+          student.roll_no.toLowerCase().includes(query)
+        )
+      : students;
+    return matches.slice(0, 50);
+  }, [students, studentSearch]);
 
   // These filters define the reporting period. Status/search are intentionally excluded
   // so changing "Present" to "Absent" does not change the attendance percentage.
@@ -223,12 +235,49 @@ export default function ReportsPage() {
         <div className="mt-4 space-y-4">
           <GlassCard className="p-5">
             <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr_1fr]">
-              <div className="space-y-2">
+              <div className="relative space-y-2">
                 <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">Student</label>
-                <select value={selectedStudentId ?? ""} onChange={(event) => setSelectedStudentId(Number(event.target.value) || null)} className="w-full rounded-xl border border-white/10 bg-[#0F172A] px-4 py-3 text-sm text-white outline-none focus:border-blue-500/50">
-                  <option value="">Select a student</option>
-                  {students.map((student) => <option key={student.id} value={student.id}>{student.name} · {student.roll_no}</option>)}
-                </select>
+                <Input
+                  value={selectedStudent ? `${selectedStudent.name} · ${selectedStudent.roll_no}` : studentSearch}
+                  onChange={(event) => {
+                    setStudentSearch(event.target.value);
+                    setSelectedStudentId(null);
+                    setStudentPickerOpen(true);
+                  }}
+                  onFocus={() => {
+                    setStudentSearch("");
+                    setStudentPickerOpen(true);
+                  }}
+                  onBlur={() => setTimeout(() => setStudentPickerOpen(false), 150)}
+                  placeholder="Search by student name or roll number"
+                />
+                {studentPickerOpen && (
+                  <div className="absolute left-0 right-0 top-[4.75rem] z-30 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-[#0F172A] shadow-2xl">
+                    {studentOptions.length === 0 ? (
+                      <p className="px-4 py-3 text-sm text-[#94A3B8]">No student found.</p>
+                    ) : (
+                      studentOptions.map((student) => (
+                        <button
+                          key={student.id}
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => {
+                            setSelectedStudentId(student.id);
+                            setStudentSearch("");
+                            setStudentPickerOpen(false);
+                          }}
+                          className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-white hover:bg-white/5"
+                        >
+                          <span className="truncate">{student.name}</span>
+                          <span className="ml-3 shrink-0 text-xs text-[#94A3B8]">{student.roll_no}</span>
+                        </button>
+                      ))
+                    )}
+                    {studentOptions.length === 50 && (
+                      <p className="border-t border-white/10 px-4 py-2 text-xs text-[#64748B]">Showing first 50 matches. Type more to narrow the list.</p>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">Subject</label>
