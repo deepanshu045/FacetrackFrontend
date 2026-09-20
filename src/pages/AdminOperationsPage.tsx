@@ -30,7 +30,7 @@ interface Props { mode: Mode; }
 
 const DAYS = [[0, "Monday"], [1, "Tuesday"], [2, "Wednesday"], [3, "Thursday"], [4, "Friday"], [5, "Saturday"], [6, "Sunday"]] as const;
 const EMPTY_SECTION = { department: "", class_name: "", section: "" };
-const CLASS_OPTIONS = ["FY", "SY", "TY"];
+const CLASS_OPTIONS = ["FY", "SY", "TY", "4Y", "5Y", "6Y", "7Y", "8Y", "9Y", "10Y"];
 const EMPTY_TEACHER = { username: "", name: "", email: "", password: "" };
 const EMPTY_ASSIGNMENT = { teacherId: "", classSectionId: "" };
 const EMPTY_LECTURE = { subject: "", classSectionId: "", teacherId: "", date: "", start: "", end: "" };
