@@ -256,28 +256,48 @@ export default function ReportsPage() {
             <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr_1fr]">
               <div className="space-y-2">
                 <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">Student</label>
-                <Input
-                  value={studentSearch}
-                  onChange={(event) => {
-                    setStudentSearch(event.target.value);
-                    setSelectedStudentId(null);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      selectStudentFromSearch();
-                    }
-                  }}
-                  placeholder={selectedStudent ? `${selectedStudent.name} · ${selectedStudent.roll_no}` : "Type name or roll number, then press Enter"}
-                />
-                {studentSearch.trim() && (
-                  <p className="text-xs text-[#64748B]">
-                    {matchingStudents.length === 0
-                      ? "No matching student."
-                      : matchingStudents.length === 1
-                        ? "Press Enter to select this student."
-                        : `${matchingStudents.length} students match. Type more or use the full roll number.`}
-                  </p>
+                <div className="relative">
+                  <Input
+                    value={studentSearch}
+                    onChange={(event) => {
+                      setStudentSearch(event.target.value);
+                      setSelectedStudentId(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        selectStudentFromSearch();
+                      }
+                    }}
+                    placeholder={selectedStudent ? `${selectedStudent.name} · ${selectedStudent.roll_no}` : "Type name or roll number"}
+                  />
+                  {studentSearch.trim() && matchingStudents.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full z-40 mt-1 max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-[#0F172A] shadow-2xl">
+                      {matchingStudents.slice(0, 8).map((student) => (
+                        <button
+                          key={student.id}
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => {
+                            setSelectedStudentId(student.id);
+                            setStudentSearch("");
+                          }}
+                          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm text-white hover:bg-white/10"
+                        >
+                          <span className="truncate font-medium">{student.name}</span>
+                          <span className="shrink-0 text-xs text-[#94A3B8]">{student.roll_no}</span>
+                        </button>
+                      ))}
+                      {matchingStudents.length > 8 && (
+                        <p className="border-t border-white/10 px-4 py-2 text-xs text-[#64748B]">
+                          {matchingStudents.length - 8} more matches — type more to narrow the search.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {studentSearch.trim() && matchingStudents.length === 0 && (
+                  <p className="text-xs text-[#64748B]">No matching student.</p>
                 )}
               </div>
               <div className="space-y-2">
