@@ -33,7 +33,6 @@ export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonthString());
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [studentSearch, setStudentSearch] = useState("");
-  const [studentPickerOpen, setStudentPickerOpen] = useState(false);
   const [subject, setSubject] = useState("all");
   const [status, setStatus] = useState("all");
   const [fromDate, setFromDate] = useState("");
@@ -45,10 +44,8 @@ export default function ReportsPage() {
   const [studentSummary, setStudentSummary] = useState<StudentAttendanceSummary | null>(null);
 
   useEffect(() => {
-    if (students.length && selectedStudentId === null) setSelectedStudentId(students[0].id);
-  }, [students, selectedStudentId]);
-
-  useEffect(() => setPage(1), [filter, selectedStudentId, selectedDate, selectedMonth, subject, status, fromDate, toDate, search]);
+    setPage(1);
+  }, [filter, selectedStudentId, selectedDate, selectedMonth, subject, status, fromDate, toDate, search]);
 
   useEffect(() => {
     async function loadRecords() {
@@ -113,16 +110,38 @@ export default function ReportsPage() {
   }, [selectedStudentId]);
 
   const selectedStudent = students.find((student) => student.id === selectedStudentId);
-  const studentOptions = useMemo(() => {
+
+  const matchingStudents = useMemo(() => {
     const query = studentSearch.trim().toLowerCase();
-    const matches = query
-      ? students.filter((student) =>
-          student.name.toLowerCase().includes(query) ||
-          student.roll_no.toLowerCase().includes(query)
-        )
-      : students;
-    return matches.slice(0, 50);
+    if (!query) return [];
+    return students.filter((student) =>
+      student.name.toLowerCase().includes(query) ||
+      student.roll_no.toLowerCase().includes(query)
+    );
   }, [students, studentSearch]);
+
+  function selectStudentFromSearch() {
+    const query = studentSearch.trim().toLowerCase();
+    if (!query) return;
+
+    const exact = students.find((student) =>
+      student.name.trim().toLowerCase() === query ||
+      student.roll_no.trim().toLowerCase() === query
+    );
+    const match = exact ?? (matchingStudents.length === 1 ? matchingStudents[0] : null);
+
+    if (match) {
+      setSelectedStudentId(match.id);
+      setStudentSearch(`${match.name} · ${match.roll_no}`);
+      return;
+    }
+
+    if (matchingStudents.length > 1) {
+      toast.info("More than one student matches. Type the full name or roll number.");
+    } else {
+      toast.error("No student found with that name or roll number.");
+    }
+  }
 
   // These filters define the reporting period. Status/search are intentionally excluded
   // so changing "Present" to "Absent" does not change the attendance percentage.
@@ -235,48 +254,30 @@ export default function ReportsPage() {
         <div className="mt-4 space-y-4">
           <GlassCard className="p-5">
             <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr_1fr]">
-              <div className="relative space-y-2">
+              <div className="space-y-2">
                 <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">Student</label>
                 <Input
                   value={studentSearch}
                   onChange={(event) => {
                     setStudentSearch(event.target.value);
                     setSelectedStudentId(null);
-                    setStudentPickerOpen(true);
                   }}
-                  onFocus={() => {
-                    setStudentSearch("");
-                    setStudentPickerOpen(true);
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      selectStudentFromSearch();
+                    }
                   }}
-                  onBlur={() => setTimeout(() => setStudentPickerOpen(false), 200)}
-                  placeholder={selectedStudent ? `${selectedStudent.name} · ${selectedStudent.roll_no}` : "Search by student name or roll number"}
+                  placeholder={selectedStudent ? `${selectedStudent.name} · ${selectedStudent.roll_no}` : "Type name or roll number, then press Enter"}
                 />
-                {studentPickerOpen && (
-                  <div className="absolute left-0 right-0 top-[4.75rem] z-30 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-[#0F172A] shadow-2xl">
-                    {studentOptions.length === 0 ? (
-                      <p className="px-4 py-3 text-sm text-[#94A3B8]">No student found.</p>
-                    ) : (
-                      studentOptions.map((student) => (
-                        <button
-                          key={student.id}
-                          type="button"
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => {
-                            setSelectedStudentId(student.id);
-                            setStudentSearch(`${student.name} · ${student.roll_no}`);
-                            setStudentPickerOpen(false);
-                          }}
-                          className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-white hover:bg-white/5"
-                        >
-                          <span className="truncate">{student.name}</span>
-                          <span className="ml-3 shrink-0 text-xs text-[#94A3B8]">{student.roll_no}</span>
-                        </button>
-                      ))
-                    )}
-                    {studentOptions.length === 50 && (
-                      <p className="border-t border-white/10 px-4 py-2 text-xs text-[#64748B]">Showing first 50 matches. Type more to narrow the list.</p>
-                    )}
-                  </div>
+                {studentSearch.trim() && (
+                  <p className="text-xs text-[#64748B]">
+                    {matchingStudents.length === 0
+                      ? "No matching student."
+                      : matchingStudents.length === 1
+                        ? "Press Enter to select this student."
+                        : `${matchingStudents.length} students match. Type more or use the full roll number.`}
+                  </p>
                 )}
               </div>
               <div className="space-y-2">
@@ -375,7 +376,6 @@ export default function ReportsPage() {
             <p className="mt-1 text-sm text-[#64748B]">{filtered.length} lecture{filtered.length === 1 ? "" : "s"} in this view</p>
           </div>
           <div className="flex items-center gap-2">
-            {/* <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." /> */}
             <button onClick={exportCsv} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">Export CSV</button>
           </div>
         </div>
