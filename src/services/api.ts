@@ -48,6 +48,7 @@ export async function fetchCollegeClosures() { return request("/college-closures
 export async function createCollegeClosure(payload: { closure_date: string; reason?: "Holiday" | "Event" | "Emergency" | "Other"; description?: string | null }) { return request("/college-closures", { method: "POST", headers: getAuthHeaders("application/json"), body: JSON.stringify(payload) }) as Promise<CollegeClosure>; }
 export async function deleteCollegeClosure(id: number) { return request(`/college-closures/${id}`, { method: "DELETE" }); }
 export async function fetchTodayAttendance() { return request("/reports/today") as Promise<AttendanceReport[]>; }
+export async function fetchRecentAttendance(limit = 10) { return request(`/reports/recent${queryString({ limit })}`) as Promise<AttendanceReport[]>; }
 export async function fetchAttendanceByStudent(studentId: number) { return request(`/reports/student/${studentId}`) as Promise<AttendanceReport[]>; }
 export async function fetchAttendanceByDate(attendanceDate: string) { return request(`/reports/date/${attendanceDate}`) as Promise<AttendanceReport[]>; }
 export async function fetchMonthlyAttendance(year: number, month: number) { return request(`/reports/monthly/${year}/${month}`) as Promise<AttendanceReport[]>; }
