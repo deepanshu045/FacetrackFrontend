@@ -3,7 +3,7 @@ import GlassCard from "../ui/GlassCard";
 
 import { ATTENDANCE } from "../../data/mockData";
 import { useEffect, useState } from "react";
-import { fetchTodayAttendance } from "../../services/api";
+import { fetchRecentAttendance } from "../../services/api";
 
 function parseApiDateTime(value: unknown): Date | null {
   if (!value) return null;
@@ -66,7 +66,7 @@ export default function RecentAttendanceTable() {
     (async () => {
       setLoading(true);
       try {
-        const res = await fetchTodayAttendance();
+        const res = await fetchRecentAttendance(5);
         if (!mounted || !Array.isArray(res)) return;
         setData(res as any);
       } catch (e) {
