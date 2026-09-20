@@ -127,7 +127,7 @@ export default function RecentAttendanceTable() {
               const roll = attendance.roll_no ?? attendance.rollNo ?? "—";
               const dept = attendance.department ?? "—";
               const rawDate = attendance.attendance_date ?? attendance.date ?? attendance.lecture_date;
-              const rawTime = attendance.attendance_time ?? attendance.attendanceTime ?? attendance.marked_at;
+              const rawTime = attendance.start_time ?? attendance.attendance_time ?? attendance.attendanceTime ?? attendance.marked_at;
 
               const key = attendance.id ?? `${attendance.student_id ?? attendance.studentId ?? idx}-${rawDate ?? ""}-${rawTime ?? ""}`;
 
