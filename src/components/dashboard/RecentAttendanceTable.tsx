@@ -3,7 +3,7 @@ import GlassCard from "../ui/GlassCard";
 
 import { ATTENDANCE } from "../../data/mockData";
 import { useEffect, useState } from "react";
-import { fetchRecentAttendance } from "../../services/api";
+import { fetchMonthlyAttendance, fetchRecentAttendance } from "../../services/api";
 
 function parseApiDateTime(value: unknown): Date | null {
   if (!value) return null;
@@ -66,11 +66,30 @@ export default function RecentAttendanceTable() {
     (async () => {
       setLoading(true);
       try {
-        const res = await fetchRecentAttendance(5);
+        let res: any[] = [];
+        try {
+          res = await fetchRecentAttendance(5);
+        } catch {
+          // Fall back to the existing monthly report endpoint if the
+          // newly added /reports/recent endpoint is not deployed yet.
+          const now = new Date();
+          res = await fetchMonthlyAttendance(now.getFullYear(), now.getMonth() + 1);
+          res = [...res].sort((a: any, b: any) => {
+            const dateA = new Date(
+              `${a.attendance_date}T${a.attendance_time || "00:00:00"}`
+            ).getTime();
+            const dateB = new Date(
+              `${b.attendance_date}T${b.attendance_time || "00:00:00"}`
+            ).getTime();
+            return dateB - dateA;
+          }).slice(0, 5);
+        }
+
         if (!mounted || !Array.isArray(res)) return;
         setData(res as any);
-      } catch (e) {
-        // keep mock
+      } catch {
+        // Do not show stale mock attendance when the API is unavailable.
+        if (mounted) setData([]);
       } finally { if (mounted) setLoading(false); }
     })();
     return () => { mounted = false; };
