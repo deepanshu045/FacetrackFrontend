@@ -9,6 +9,13 @@ interface StudentViewModalProps {
   onClose: () => void;
 }
 
+function normalizeClassYear(value?: string | null) {
+  if (!value) return "";
+  const normalized = value.trim().toUpperCase();
+  const map: Record<string, string> = { "1": "FY", "2": "SY", "3": "TY", "4": "4Y", "5": "5Y", "6": "6Y", "7": "7Y", "8": "8Y", "9": "9Y", "10": "10Y", "FIRST YEAR": "FY", "SECOND YEAR": "SY", "THIRD YEAR": "TY", "FOURTH YEAR": "4Y", "FIFTH YEAR": "5Y", "SIXTH YEAR": "6Y" };
+  return map[normalized] ?? value;
+}
+
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
@@ -38,7 +45,7 @@ export default function StudentViewModal({ open, student, onClose }: StudentView
         <div className="grid gap-3 sm:grid-cols-2">
           <Detail label="Roll No" value={student.roll_no} />
           <Detail label="Department" value={student.department} />
-          <Detail label="Class" value={student.class_name ?? ""} />
+          <Detail label="Class" value={normalizeClassYear(student.class_name)} />
           <Detail label="Section" value={student.section ?? ""} />
           <Detail label="Email" value={student.email ?? ""} />
           <Detail label="Phone" value={student.phone_no ?? ""} />
