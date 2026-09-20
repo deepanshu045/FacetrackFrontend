@@ -256,8 +256,7 @@ export default function ReportsPage() {
             <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr_1fr]">
               <div className="space-y-2">
                 <label className="text-xs font-medium uppercase tracking-wide text-[#64748B]">Student</label>
-                <div>
-                  <Input
+                <div className="relative">
                     value={studentSearch}
                     onChange={(event) => {
                       setStudentSearch(event.target.value);
@@ -272,7 +271,7 @@ export default function ReportsPage() {
                     placeholder={selectedStudent ? `${selectedStudent.name} · ${selectedStudent.roll_no}` : "Type name or roll number"}
                   />
                   {studentSearch.trim() && matchingStudents.length > 0 && (
-                    <div className="mt-1 max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-[#0F172A] shadow-lg">
+                    <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-[#1E293B] shadow-2xl">
                       {matchingStudents.slice(0, 8).map((student) => (
                         <button
                           key={student.id}
